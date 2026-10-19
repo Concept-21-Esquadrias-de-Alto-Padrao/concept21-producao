@@ -630,10 +630,21 @@ async function loadProductionSnapshot(
     addSnapshotQuery(queries, include, {
       key: "prodPieceStages",
       optionalMissing: true,
-      load: () => {
-        const query = supabase.from("production_prod_piece_stages")
-          .select("*, expedition_archive:production_expedition_archives(archived_at,restored_at,reason)");
-        return filters.prodId ? query.eq("prod_id", filters.prodId) : query;
+      load: async () => {
+        const rows: ProductionPieceStage[] = [];
+        let afterId: string | undefined;
+        while (true) {
+          let query = supabase.from("production_prod_piece_stages")
+            .select("*, expedition_archive:production_expedition_archives(archived_at,restored_at,reason)")
+            .order("id").limit(500);
+          if (filters.prodId) query = query.eq("prod_id", filters.prodId);
+          if (afterId) query = query.gt("id", afterId);
+          const result = await query;
+          if (result.error) return { data: null, error: result.error };
+          if (!result.data.length) return { data: rows, error: null };
+          rows.push(...result.data as ProductionPieceStage[]);
+          afterId = result.data[result.data.length - 1].id;
+        }
       },
       apply: (target, data) => {
         target.prodPieceStages = (data as ProductionPieceStage[]).map(formatPieceStage);
