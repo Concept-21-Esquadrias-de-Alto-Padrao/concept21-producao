@@ -536,12 +536,12 @@ export function ProductionPointingBoard({
   }, [firstPointingStageByPieceId, pieceById]);
 
   const openRows = useMemo(() => stageRows.filter((pieceStage) => {
-    if (isExpeditionStage && isExpeditionArchived(pieceStage)) return false;
+    if (isExpeditionArchived(pieceStage)) return false;
     if (pieceStage.status === "concluida") return false;
     if (!isPieceStageUnlocked(pieceStage, pointingPieceStages, pointingStages)) return false;
     if (rowIsReleased(pieceStage)) return true;
     return canReleaseProduction && activeStageIndex === 0;
-  }), [stageRows, isExpeditionStage, pointingPieceStages, pointingStages, rowIsReleased, canReleaseProduction, activeStageIndex]);
+  }), [stageRows, pointingPieceStages, pointingStages, rowIsReleased, canReleaseProduction, activeStageIndex]);
   const groupedOpenRows = useMemo(() => {
     const groups = new Map<
       string,
@@ -828,7 +828,7 @@ export function ProductionPointingBoard({
             const count = pointingPieceStages.filter(
               (pieceStage) => {
                 if (pieceStage.stage_id !== stage.id) return false;
-                if (stage.sort_order === POINTING_STAGE_MAX_ORDER && isExpeditionArchived(pieceStage)) return false;
+                if (isExpeditionArchived(pieceStage)) return false;
                 if (pieceStage.status === "concluida") return false;
                 if (!isPieceStageUnlocked(pieceStage, pointingPieceStages, pointingStages)) return false;
                 if (rowIsReleased(pieceStage)) return true;
@@ -885,6 +885,15 @@ export function ProductionPointingBoard({
         </div>
       </div>
 
+      {activePanel === "production" && canArchiveExpedition && [8, 9].includes(activeStageOrder) && (
+        <ExpeditionArchivePanel
+          key={resolvedActiveStageId}
+          stageName={activeStageOrder === 8 ? "Embalagem" : "Expedição"}
+          clients={clients} contracts={contracts} prods={prods}
+          activeRows={openRows} archivedRows={stageRows.filter(isExpeditionArchived)}
+        />
+      )}
+
       {activePanel === "indirect" ? (
         <IndirectActivitiesPanel
           reasons={indirectActivityReasons}
@@ -894,12 +903,6 @@ export function ProductionPointingBoard({
         />
       ) : isExpeditionStage ? (
         <>
-        {canArchiveExpedition && (
-          <ExpeditionArchivePanel
-            clients={clients} contracts={contracts} prods={prods}
-            activeRows={openRows} archivedRows={stageRows.filter(isExpeditionArchived)}
-          />
-        )}
         <ExpeditionLoadControlPanel
           clients={clients}
           contracts={contracts}

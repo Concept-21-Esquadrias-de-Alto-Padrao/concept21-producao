@@ -7,7 +7,8 @@ import { activeExpeditionArchive } from "@/lib/expedition-archive";
 import type { Client, ProductionContract, ProductionProd, ProductionPieceStage } from "@/lib/types";
 import { formatDateTime } from "@/lib/utils";
 
-export function ExpeditionArchivePanel({ clients, contracts, prods, activeRows, archivedRows }: {
+export function ExpeditionArchivePanel({ clients, contracts, prods, activeRows, archivedRows, stageName }: {
+  stageName: "Embalagem" | "Expedição";
   clients: Client[]; contracts: ProductionContract[]; prods: ProductionProd[];
   activeRows: ProductionPieceStage[]; archivedRows: ProductionPieceStage[];
 }) {
@@ -29,7 +30,7 @@ export function ExpeditionArchivePanel({ clients, contracts, prods, activeRows, 
   const selectedRows = rows.filter((row) => selected.includes(row.prod_id));
 
   return <details className="rounded-md border border-border bg-white p-4">
-    <summary className="cursor-pointer font-semibold">Arquivamento da Expedição · {archivedRows.length} peça(s) arquivada(s)</summary>
+    <summary className="cursor-pointer font-semibold">Arquivamento da {stageName} · {archivedRows.length} peça(s) arquivada(s)</summary>
     <p className="my-3 text-sm text-muted-foreground">Arquivar retira da fila sem concluir a etapa. Tempos e apontamentos permanecem no histórico. A reativação devolve as peças à fila quando atendem às condições operacionais.</p>
     <label className="block text-sm font-medium">Operação
       <select value={mode} disabled={pending} onChange={(event) => { setMode(event.target.value as typeof mode); setSelected([]); }} className="ml-3 rounded border p-2">
