@@ -50,3 +50,16 @@ textarea {
 }
 
 [aria-invalid="true"] { outline: 2px solid #dc2626; outline-offset: 2px; }
+
+@keyframes feedback-enter {
+  from { opacity: 0; transform: translateY(-12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.feedback-toast { animation: feedback-enter 300ms ease-out; transition: opacity 300ms ease, transform 300ms ease; }
+.feedback-toast.is-leaving { opacity: 0; transform: translateY(-12px); }
+.selection-toolbar { opacity: 0; visibility: hidden; transform: translateY(16px); transition: opacity 300ms ease, transform 300ms ease, visibility 300ms; bottom: max(.75rem, env(safe-area-inset-bottom)); }
+.selection-toolbar.is-active { opacity: 1; visibility: visible; transform: translateY(0); }
+@media (prefers-reduced-motion: reduce) {
+  .feedback-toast { animation: none; }
+  .feedback-toast, .selection-toolbar { transition: none; }
+}

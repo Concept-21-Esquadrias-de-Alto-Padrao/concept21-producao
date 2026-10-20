@@ -1,6 +1,6 @@
 "use client";
 
-import { ActionFeedback, useActionFeedback } from "@/components/floating-feedback";
+import { ActionFeedback, FieldFeedback, useActionFeedback } from "@/components/floating-feedback";
 
 import {
   AlertTriangle,
@@ -31,6 +31,7 @@ import { Field, inputClass, textareaClass } from "@/components/action-form";
 import { StatusBadge } from "@/components/badges";
 import { EmptyState } from "@/components/empty-state";
 import { ExpeditionLoadControlPanel } from "@/components/expedition-load-control-panel";
+import { SelectionToolbar } from "@/components/selection-toolbar";
 import { FloatingDialog } from "@/components/floating-dialog";
 import { ExpeditionArchivePanel } from "@/components/expedition-archive-panel";
 import { isExpeditionArchived } from "@/lib/expedition-archive";
@@ -826,7 +827,7 @@ export function ProductionPointingBoard({
   }
 
   return (
-    <div className="space-y-4 pb-64 sm:pb-44">
+    <div className="space-y-4">
       {activePanel === "production" && (
         <section aria-label="Filtros de apontamento" className="grid gap-3 rounded-md border border-border bg-white p-4 sm:grid-cols-2 lg:grid-cols-3">
           <Field label="Buscar na fila">
@@ -954,16 +955,6 @@ export function ProductionPointingBoard({
         </>
       ) : (
         <>
-      <div className="fixed inset-x-0 bottom-0 z-40 flex flex-col gap-2 border-t border-border bg-white p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-4px_16px_#0001] lg:left-64 lg:flex-row lg:items-center lg:justify-between" role="toolbar" aria-label="Ações de apontamento">
-        <div>
-          <p className="font-semibold text-charcoal">
-            {selectedRows.length} peça(s) selecionada(s)
-          </p>
-          <p className="text-sm text-muted-foreground">
-            Selecione as peças e escolha uma ação.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
           <button
             type="button"
             onClick={selectAllVisible}
@@ -975,8 +966,17 @@ export function ProductionPointingBoard({
               ? "Limpar seleção"
               : "Selecionar visíveis"}
           </button>
+
+<SelectionToolbar active={selectedRows.length > 0} label="Ações de apontamento">
+        <div>
+          <p className="font-semibold text-charcoal">
+            {selectedRows.length} peça(s) selecionada(s)
+          </p>
+
+        </div>
+        <div className="flex flex-wrap gap-2">
           <button type="button" onClick={clearQueueSelection} disabled={!selectedIds.size} className="min-h-11 rounded border border-border px-3 py-2 text-sm disabled:opacity-50">Limpar</button>
-          {operationalActions.map((action) => {
+          {operationalActions.filter((action) => !["pendencia", "retornar"].includes(action)).map((action) => {
             const Icon = actionIcons[action];
             const allowed = action === "retornar" ? canRollback : canPerform;
             const disabled =
@@ -1002,8 +1002,35 @@ export function ProductionPointingBoard({
               </button>
             );
           })}
+<details className="relative"><summary className="min-h-10 cursor-pointer rounded-md border border-border px-3 py-2 text-sm">Mais ações</summary><div className="absolute bottom-full right-0 mb-2 flex min-w-40 flex-col gap-2 rounded-lg border border-border bg-white p-2 shadow-lg">          {operationalActions.filter((action) => ["pendencia", "retornar"].includes(action)).map((action) => {
+            const Icon = actionIcons[action];
+            const allowed = action === "retornar" ? canRollback : canPerform;
+            const disabled =
+              !allowed ||
+              selectedIds.size === 0 ||
+              !selectedRows.every((row) => availableActionsForPieceStage(row).includes(action)) ||
+              (action === "retornar" && !canRollbackActiveStage);
+            return (
+              <button
+                key={action}
+                type="button"
+                disabled={disabled}
+                onClick={() => setActiveAction(action)}
+                className={cn(
+                  "inline-flex min-h-10 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50",
+                  activeAction === action
+                    ? "bg-charcoal text-white"
+                    : "border border-border bg-white text-charcoal hover:bg-muted",
+                )}
+              >
+                <Icon className="size-4" />
+                {actionLabels[action]}
+              </button>
+            );
+          })}</div></details>
         </div>
-      </div>
+
+</SelectionToolbar>
 
       {activeAction ? (
         <FloatingDialog title={`Confirmar ${actionLabels[activeAction]}`} busy={pending} onClose={() => setActiveAction(null)}>
@@ -1012,6 +1039,7 @@ export function ProductionPointingBoard({
             className="space-y-3"
           >
           <p className="text-sm text-muted-foreground">{Array.from(new Set(selectedRows.map((row) => { const prod = prodById.get(row.prod_id); const contract = prod ? contractById.get(prod.contract_id) : undefined; return `${contract?.contract_number ?? ""} · PROD ${prod?.prod_number ?? ""}`; }))).join("; ")}</p>
+          <FieldFeedback state={state} />
           <input type="hidden" name="action_type" value={activeAction} />
           <input type="hidden" name="piece_stage_ids_json" value={selectedJson} />
           <div className="mb-3 flex items-start justify-between gap-3">
@@ -1187,6 +1215,7 @@ export function ProductionPointingBoard({
             </div>
 
             <div className="grid gap-3 md:grid-cols-2">
+              <FieldFeedback state={timeState} />
               <Field label="Horário inicial">
                 <input
                   name="started_at"

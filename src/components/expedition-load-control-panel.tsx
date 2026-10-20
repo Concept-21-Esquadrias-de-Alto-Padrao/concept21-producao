@@ -1,6 +1,6 @@
 "use client";
 
-import { ActionFeedback, useActionFeedback } from "@/components/floating-feedback";
+import { ActionFeedback, FieldFeedback, useActionFeedback } from "@/components/floating-feedback";
 
 import {
   CheckCircle2,
@@ -20,6 +20,7 @@ import {
 import { Field, inputClass, textareaClass } from "@/components/action-form";
 import { StatusBadge } from "@/components/badges";
 import { EmptyState } from "@/components/empty-state";
+import { SelectionToolbar } from "@/components/selection-toolbar";
 import { FloatingDialog } from "@/components/floating-dialog";
 import { RomaneioPdfButton } from "@/components/romaneio-pdf-button";
 import {
@@ -245,22 +246,14 @@ export function ExpeditionLoadControlPanel({
   }
 
   return (
-    <div className="space-y-4 pb-56">
+    <div className="space-y-4">
       <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
         A expedição não usa cronômetro. Preencha o controle de carga, salve os volumes e finalize a
         expedição com matrícula e senha do operador.
       </div>
 
       <form action={saveAction} className="space-y-4">
-        <div role="toolbar" aria-label="Ações de expedição" className="fixed inset-x-0 bottom-0 z-40 flex flex-wrap items-center justify-between gap-2 border-t border-border bg-white p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-xl lg:left-64">
-          <div>
-            <p className="font-semibold text-charcoal">Controle de carga</p>
-            <p className="text-sm text-muted-foreground">
-              {selectedIds.size} peça(s) selecionada(s) · {openRows.length} disponível(is).
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <button
+<div className="flex flex-wrap gap-2">            <button
               type="button"
               onClick={toggleAllVisible}
               disabled={!visibleOpenRows.length}
@@ -270,7 +263,6 @@ export function ExpeditionLoadControlPanel({
                 ? "Limpar seleção"
                 : "Selecionar visíveis"}
             </button>
-            <button type="button" onClick={() => setSelectedIds(new Set())} disabled={!selectedIds.size} className="min-h-11 rounded border border-border px-3 py-2 text-sm disabled:opacity-50">Limpar</button>
             <button
               type="submit"
               disabled={!canPerform || savePending || !visibleOpenRows.length}
@@ -283,9 +275,18 @@ export function ExpeditionLoadControlPanel({
               )}
               Salvar controle
             </button>
+</div>
+<SelectionToolbar active={selectedIds.size > 0} label="Ações de expedição">          <div>
+            <p className="font-semibold text-charcoal">Controle de carga</p>
+            <p className="text-sm text-muted-foreground">
+              {selectedIds.size} peça(s) selecionada(s) · {openRows.length} disponível(is).
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={() => setSelectedIds(new Set())} disabled={!selectedIds.size} className="min-h-11 rounded border border-border px-3 py-2 text-sm disabled:opacity-50">Limpar</button>
             <button type="button" disabled={!canPerform || !selectedIds.size || savePending} onClick={() => setConfirmOpen(true)} className="min-h-11 rounded bg-charcoal px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">Finalizar expedição</button>
           </div>
-        </div>
+</SelectionToolbar>
         <ActionMessage state={saveState} />
 
         {groupedRows.map((group) => {
@@ -479,6 +480,7 @@ export function ExpeditionLoadControlPanel({
           </p>
         </div>
         <div className="grid gap-3 md:grid-cols-2">
+          <FieldFeedback state={completeState} />
           <Field label="Matrícula">
             <input
               name="operator_registration"

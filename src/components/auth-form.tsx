@@ -1,6 +1,6 @@
 "use client";
 
-import { FloatingMessage } from "@/components/floating-feedback";
+import { FieldFeedback, FloatingMessage } from "@/components/floating-feedback";
 
 import { ArrowLeft, LogIn, UserPlus } from "lucide-react";
 import Link from "next/link";
@@ -20,6 +20,7 @@ export function AuthForm({ mode, notice }: { mode: AuthMode; notice?: string }) 
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [message, setMessage] = useState("");
+  const [fieldMessage, setFieldMessage] = useState("");
   const [success, setSuccess] = useState(false);
   const [pending, setPending] = useState(false);
 
@@ -62,6 +63,7 @@ export function AuthForm({ mode, notice }: { mode: AuthMode; notice?: string }) 
         }
 
         setSuccess(true);
+        setFieldMessage("");
         setMessage(
           "Cadastro criado. Verifique seu e-mail para confirmar o acesso e depois entre na plataforma.",
         );
@@ -76,6 +78,7 @@ export function AuthForm({ mode, notice }: { mode: AuthMode; notice?: string }) 
     } catch (error) {
       setSuccess(false);
       setMessage(toUserFriendlyErrorMessage(error));
+      setFieldMessage(toUserFriendlyErrorMessage(error));
     } finally {
       setPending(false);
     }
@@ -115,6 +118,7 @@ export function AuthForm({ mode, notice }: { mode: AuthMode; notice?: string }) 
           <FloatingMessage message={!message ? notice : null} kind="success" />
 
           <FloatingMessage message={message} kind={success ? "success" : "error"} />
+          <FieldFeedback state={{ ok: success, message: fieldMessage }} />
 
           {isSignup ? (
             <label className="block space-y-1.5">
