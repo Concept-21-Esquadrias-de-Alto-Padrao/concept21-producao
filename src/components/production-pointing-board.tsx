@@ -885,10 +885,10 @@ export function ProductionPointingBoard({
         </div>
       </div>
 
-      {activePanel === "production" && canArchiveExpedition && [8, 9].includes(activeStageOrder) && (
+      {activePanel === "production" && canArchiveExpedition && [7, 8, 9].includes(activeStageOrder) && (
         <ExpeditionArchivePanel
           key={resolvedActiveStageId}
-          stageName={activeStageOrder === 8 ? "Embalagem" : "Expedição"}
+          stageName={activeStageOrder === 7 ? "Preparação e montagem" : activeStageOrder === 8 ? "Embalagem" : "Expedição"}
           clients={clients} contracts={contracts} prods={prods}
           activeRows={openRows} archivedRows={stageRows.filter(isExpeditionArchived)}
         />
