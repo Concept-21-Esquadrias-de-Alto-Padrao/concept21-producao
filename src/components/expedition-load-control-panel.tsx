@@ -16,6 +16,7 @@ import { useRouter } from "next/navigation";
 import {
   completeExpeditionLoadControlAction,
   saveExpeditionLoadControlAction,
+  pointProductionPiecesAction,
 } from "@/app/actions";
 import { Field, inputClass, textareaClass } from "@/components/action-form";
 import { StatusBadge } from "@/components/badges";
@@ -50,6 +51,7 @@ type ExpeditionLoadControlPanelProps = {
   stageRows: ProductionPieceStage[];
   openRows: ProductionPieceStage[];
   canPerform: boolean;
+  canRollback: boolean;
 };
 
 const initialState: ActionState = {
@@ -108,8 +110,12 @@ export function ExpeditionLoadControlPanel({
   stageRows,
   openRows,
   canPerform,
+  canRollback,
 }: ExpeditionLoadControlPanelProps) {
   const router = useRouter();
+  const [returning, setReturning] = useState(false);
+  const [rollbackState, rollbackAction, rollbackPending] = useActionState(pointProductionPiecesAction, initialState);
+  useActionFeedback(rollbackState);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [expandedGroupIds, setExpandedGroupIds] = useState<Set<string>>(new Set());
@@ -123,6 +129,17 @@ export function ExpeditionLoadControlPanel({
     initialState,
   );
   useActionFeedback(completeState);
+  const actionPending = returning ? rollbackPending : completePending;
+  const actionLabel = returning ? "Voltar para Embalagem" : "Finalizar expedição";
+  useEffect(() => {
+    if (!rollbackState.ok) return;
+    const timer = window.setTimeout(() => {
+      setSelectedIds(new Set());
+      setConfirmOpen(false);
+      router.refresh();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [rollbackState, router]);
   const clientById = useMemo(() => new Map(clients.map((client) => [client.id, client])), [clients]);
   const contractById = useMemo(
     () => new Map(contracts.map((contract) => [contract.id, contract])),
@@ -284,7 +301,8 @@ export function ExpeditionLoadControlPanel({
           </div>
           <div className="flex flex-wrap gap-2">
             <button type="button" onClick={() => setSelectedIds(new Set())} disabled={!selectedIds.size} className="min-h-11 rounded border border-border px-3 py-2 text-sm disabled:opacity-50">Limpar</button>
-            <button type="button" disabled={!canPerform || !selectedIds.size || savePending} onClick={() => setConfirmOpen(true)} className="min-h-11 rounded bg-charcoal px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">Finalizar expedição</button>
+            <button type="button" disabled={!canPerform || !selectedIds.size || savePending} onClick={() => { setReturning(false); setConfirmOpen(true); }} className="min-h-11 rounded bg-charcoal px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">Finalizar expedição</button>
+            <button type="button" disabled={!canRollback || !selectedIds.size || savePending} onClick={() => { setReturning(true); setConfirmOpen(true); }} className="min-h-11 rounded border border-border px-4 py-2 text-sm font-semibold disabled:opacity-50">Voltar etapa</button>
           </div>
 </SelectionToolbar>
         <ActionMessage state={saveState} />
@@ -468,19 +486,20 @@ export function ExpeditionLoadControlPanel({
         })}
       </form>
 
-      {confirmOpen && <FloatingDialog title={`Finalizar expedição (${selectedIds.size} peças)`} busy={completePending} onClose={() => setConfirmOpen(false)}>
-      <form action={completeAction} className="rounded-md border border-border bg-white p-3">
+      {confirmOpen && <FloatingDialog title={`${actionLabel} (${selectedIds.size} peças)`} busy={actionPending} onClose={() => setConfirmOpen(false)}>
+      <form action={returning ? rollbackAction : completeAction} className="rounded-md border border-border bg-white p-3">
+        {returning && <input type="hidden" name="action_type" value="retornar" />}
         <input type="hidden" name="piece_stage_ids_json" value={selectedJson} />
         <div className="mb-3">
           <p className="font-semibold text-charcoal">
-            Finalizar expedição ({selectedIds.size} peça(s))
+            {actionLabel} ({selectedIds.size} peça(s))
           </p>
           <p className="text-sm text-muted-foreground">
-            Finaliza a etapa sem cronômetro e mantém a conclusão vinculada ao operador informado.
+            {returning ? "A Embalagem será reaberta com o tempo zerado. A peça sairá da fila da Expedição até concluir a Embalagem novamente. O histórico de apontamentos será mantido." : "Finaliza a etapa sem cronômetro e mantém a conclusão vinculada ao operador informado."}
           </p>
         </div>
         <div className="grid gap-3 md:grid-cols-2">
-          <FieldFeedback state={completeState} />
+          <FieldFeedback state={returning ? rollbackState : completeState} />
           <Field label="Matrícula">
             <input
               name="operator_registration"
@@ -505,21 +524,22 @@ export function ExpeditionLoadControlPanel({
             />
           </Field>
         </div>
+        {returning && <Field label="Motivo do retorno" className="mt-3"><textarea name="pause_reason" className={textareaClass} required /></Field>}
         <Field label="Observações" className="mt-3">
           <textarea name="notes" className={textareaClass} />
         </Field>
         <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
           <button
             type="submit"
-            disabled={!canPerform || completePending || selectedIds.size === 0}
+            disabled={!(returning ? canRollback : canPerform) || actionPending || selectedIds.size === 0}
             className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-charcoal px-4 py-2 text-sm font-semibold text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {completePending ? (
+            {actionPending ? (
               <Loader2 className="size-4 animate-spin" />
             ) : (
               <CheckCircle2 className="size-4" />
             )}
-            Finalizar expedição
+            {actionLabel}
           </button>
 
         </div>

@@ -43,6 +43,7 @@ import {
   formatDurationClock,
   getPointingStages,
   isPieceStageUnlocked,
+  isPieceStageDone,
 } from "@/lib/pointing";
 import { calculateAdjustedPausedSeconds } from "@/lib/pointing-productivity";
 import type {
@@ -548,7 +549,7 @@ export function ProductionPointingBoard({
   const openRows = useMemo(() => stageRows.filter((pieceStage) => {
     if (!rowMatchesFilters(pieceStage)) return false;
     if (isExpeditionArchived(pieceStage)) return false;
-    if (pieceStage.status === "concluida") return false;
+    if (isPieceStageDone(pieceStage.status)) return false;
     if (!isPieceStageUnlocked(pieceStage, pointingPieceStages, pointingStages)) return false;
     if (rowIsReleased(pieceStage)) return true;
     return canReleaseProduction && activeStageIndex === 0;
@@ -868,7 +869,7 @@ export function ProductionPointingBoard({
                 if (pieceStage.stage_id !== stage.id) return false;
                 if (!rowMatchesFilters(pieceStage)) return false;
                 if (isExpeditionArchived(pieceStage)) return false;
-                if (pieceStage.status === "concluida") return false;
+                if (isPieceStageDone(pieceStage.status)) return false;
                 if (!isPieceStageUnlocked(pieceStage, pointingPieceStages, pointingStages)) return false;
                 if (rowIsReleased(pieceStage)) return true;
                 return canReleaseProduction && pointingStages.findIndex((item) => item.id === stage.id) === 0;
@@ -951,6 +952,7 @@ export function ProductionPointingBoard({
           stageRows={stageRows}
           openRows={openRows}
           canPerform={canPerform}
+          canRollback={canRollback}
         />
         </>
       ) : (
