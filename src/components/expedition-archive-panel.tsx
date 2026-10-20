@@ -8,7 +8,7 @@ import type { Client, ProductionContract, ProductionProd, ProductionPieceStage }
 import { formatDateTime } from "@/lib/utils";
 
 export function ExpeditionArchivePanel({ clients, contracts, prods, activeRows, archivedRows, stageName }: {
-  stageName: "Preparação e montagem" | "Embalagem" | "Expedição";
+  stageName: "Usinagem" | "Preparação e montagem" | "Embalagem" | "Expedição";
   clients: Client[]; contracts: ProductionContract[]; prods: ProductionProd[];
   activeRows: ProductionPieceStage[]; archivedRows: ProductionPieceStage[];
 }) {
