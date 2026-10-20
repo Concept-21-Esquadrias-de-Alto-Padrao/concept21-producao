@@ -443,6 +443,11 @@ export function ProductionPointingBoard({
 }: PointingBoardProps) {
   const router = useRouter();
   const pointingStages = useMemo(() => getPointingStages(stages), [stages]);
+  const [queueSearch, setQueueSearch] = useState("");
+  const [clientFilter, setClientFilter] = useState("");
+  const [contractFilter, setContractFilter] = useState("");
+  const [prodFilter, setProdFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
   const [activeStageId, setActiveStageId] = useState(pointingStages[0]?.id ?? "");
   const [activePanel, setActivePanel] = useState<"production" | "indirect">("production");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -535,13 +540,34 @@ export function ProductionPointingBoard({
     return Boolean(firstStage && firstStage.status !== "nao_iniciada");
   }, [firstPointingStageByPieceId, pieceById]);
 
+  const rowMatchesFilters = useCallback((row: ProductionPieceStage) => {
+    const prod = prodById.get(row.prod_id);
+    const contract = prod ? contractById.get(prod.contract_id) : undefined;
+    const client = contract ? clientById.get(contract.client_id) : undefined;
+    if (clientFilter && client?.id !== clientFilter) return false;
+    if (contractFilter && contract?.id !== contractFilter) return false;
+    if (prodFilter && row.prod_id !== prodFilter) return false;
+    if (statusFilter && row.status !== statusFilter) return false;
+    const normalize = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("pt-BR");
+    const search = normalize(queueSearch.trim());
+    if (!search) return true;
+    const piece = pieceById.get(row.piece_id);
+    return normalize([client?.name, contract?.contract_number, contract?.work_name, prod?.prod_number, piece?.piece_code].join(" ")).includes(search);
+  }, [prodById, contractById, clientById, pieceById, clientFilter, contractFilter, prodFilter, statusFilter, queueSearch]);
+  function clearQueueSelection() {
+    setSelectedIds(new Set());
+    setExpandedGroupIds(new Set());
+    setActiveAction(null);
+  }
+
   const openRows = useMemo(() => stageRows.filter((pieceStage) => {
+    if (!rowMatchesFilters(pieceStage)) return false;
     if (isExpeditionArchived(pieceStage)) return false;
     if (pieceStage.status === "concluida") return false;
     if (!isPieceStageUnlocked(pieceStage, pointingPieceStages, pointingStages)) return false;
     if (rowIsReleased(pieceStage)) return true;
     return canReleaseProduction && activeStageIndex === 0;
-  }), [stageRows, pointingPieceStages, pointingStages, rowIsReleased, canReleaseProduction, activeStageIndex]);
+  }), [stageRows, rowMatchesFilters, pointingPieceStages, pointingStages, rowIsReleased, canReleaseProduction, activeStageIndex]);
   const groupedOpenRows = useMemo(() => {
     const groups = new Map<
       string,
@@ -822,12 +848,45 @@ export function ProductionPointingBoard({
 
   return (
     <div className="space-y-4">
+      {activePanel === "production" && (
+        <section aria-label="Filtros de apontamento" className="grid gap-3 rounded-md border border-border bg-white p-4 sm:grid-cols-2 lg:grid-cols-3">
+          <Field label="Buscar na fila">
+            <input className={inputClass} value={queueSearch} placeholder="Cliente, obra, contrato, PROD ou peça" onChange={(event) => { setQueueSearch(event.target.value); clearQueueSelection(); }} />
+          </Field>
+          <Field label="Cliente">
+            <select className={inputClass} value={clientFilter} onChange={(event) => { setClientFilter(event.target.value); setContractFilter(""); setProdFilter(""); clearQueueSelection(); }}>
+              <option value="">Todos os clientes</option>
+              {clients.map((client) => <option key={client.id} value={client.id}>{client.name}</option>)}
+            </select>
+          </Field>
+          <Field label="Contrato / Obra">
+            <select className={inputClass} value={contractFilter} onChange={(event) => { setContractFilter(event.target.value); setProdFilter(""); clearQueueSelection(); }}>
+              <option value="">Todos os contratos</option>
+              {contracts.filter((contract) => !clientFilter || contract.client_id === clientFilter).map((contract) => <option key={contract.id} value={contract.id}>{contract.contract_number} · {contract.work_name}</option>)}
+            </select>
+          </Field>
+          <Field label="PROD">
+            <select className={inputClass} value={prodFilter} onChange={(event) => { setProdFilter(event.target.value); clearQueueSelection(); }}>
+              <option value="">Todas as PRODs</option>
+              {prods.filter((prod) => (!contractFilter || prod.contract_id === contractFilter) && (!clientFilter || contractById.get(prod.contract_id)?.client_id === clientFilter)).map((prod) => <option key={prod.id} value={prod.id}>{contractById.get(prod.contract_id)?.contract_number} · PROD {prod.prod_number}</option>)}
+            </select>
+          </Field>
+          <Field label="Situação">
+            <select className={inputClass} value={statusFilter} onChange={(event) => { setStatusFilter(event.target.value); clearQueueSelection(); }}>
+              <option value="">Todas as situações</option>
+              {Object.entries(stageStatusLabels).filter(([status]) => status !== "concluida").map(([status, label]) => <option key={status} value={status}>{label}</option>)}
+            </select>
+          </Field>
+          <div className="flex items-end"><button type="button" className="rounded border border-border px-4 py-2 text-sm" onClick={() => { setQueueSearch(""); setClientFilter(""); setContractFilter(""); setProdFilter(""); setStatusFilter(""); clearQueueSelection(); }}>Limpar filtros</button></div>
+        </section>
+      )}
       <div className="overflow-x-auto border-b border-border">
         <div className="flex min-w-max gap-1">
           {pointingStages.map((stage) => {
             const count = pointingPieceStages.filter(
               (pieceStage) => {
                 if (pieceStage.stage_id !== stage.id) return false;
+                if (!rowMatchesFilters(pieceStage)) return false;
                 if (isExpeditionArchived(pieceStage)) return false;
                 if (pieceStage.status === "concluida") return false;
                 if (!isPieceStageUnlocked(pieceStage, pointingPieceStages, pointingStages)) return false;
@@ -887,7 +946,7 @@ export function ProductionPointingBoard({
 
       {activePanel === "production" && canArchiveExpedition && [5, 6, 7, 8, 9].includes(activeStageOrder) && (
         <ExpeditionArchivePanel
-          key={resolvedActiveStageId}
+          key={JSON.stringify([resolvedActiveStageId, queueSearch, clientFilter, contractFilter, prodFilter, statusFilter])}
           stageName={activeStageOrder === 5 ? "Corte" : activeStageOrder === 6 ? "Usinagem" : activeStageOrder === 7 ? "Preparação e montagem" : activeStageOrder === 8 ? "Embalagem" : "Expedição"}
           clients={clients} contracts={contracts} prods={prods}
           activeRows={openRows} archivedRows={stageRows.filter(isExpeditionArchived)}
@@ -904,6 +963,7 @@ export function ProductionPointingBoard({
       ) : isExpeditionStage ? (
         <>
         <ExpeditionLoadControlPanel
+          key={JSON.stringify([queueSearch, clientFilter, contractFilter, prodFilter, statusFilter])}
           clients={clients}
           contracts={contracts}
           prods={prods}

@@ -53,6 +53,7 @@ type SnapshotInclude = Partial<Record<SnapshotKey, boolean>>;
 type QueryResponse = { data: unknown[] | null; error: QueryError | null };
 type SnapshotFilters = {
   prodId?: string;
+  throwOnError?: boolean;
 };
 type SnapshotQuery = {
   key: SnapshotKey;
@@ -949,6 +950,7 @@ async function loadProductionSnapshot(
 
     if (failedResult?.error) {
       console.error("Falha ao consultar Supabase", failedResult.error);
+      if (filters.throwOnError) throw new Error("Não foi possível carregar a fila de apontamento. Tente novamente.");
       return emptySnapshot();
     }
 
@@ -960,6 +962,7 @@ async function loadProductionSnapshot(
     return snapshot;
   } catch (error) {
     console.error("Falha ao carregar dados protegidos do Supabase", error);
+    if (filters.throwOnError) throw error;
     return emptySnapshot();
   }
 }
@@ -1024,11 +1027,9 @@ export async function getPointingPageData() {
       "pointingSettings",
       "indirectActivityReasons",
       "indirectActivitySessions",
-      "pointingSessionParticipants",
-      "pieceReworks",
-      "pointingSessions",
       "stageTimeEntries",
     ]),
+    { throwOnError: true },
   );
 }
 
