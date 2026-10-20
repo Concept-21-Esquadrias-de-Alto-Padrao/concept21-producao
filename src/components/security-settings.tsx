@@ -1,5 +1,7 @@
 "use client";
 
+import { FloatingMessage } from "@/components/floating-feedback";
+
 import {
   AlertTriangle,
   Check,
@@ -645,17 +647,9 @@ export function SecuritySettings() {
 
   return (
     <div className="space-y-5">
-      {error || resourceError ? (
-        <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-          {error ?? resourceError}
-        </div>
-      ) : null}
+      <FloatingMessage message={error ?? resourceError} />
 
-      {message ? (
-        <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">
-          {message}
-        </div>
-      ) : null}
+      <FloatingMessage message={message} kind="success" />
 
       {passwordResetUser ? (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/35 p-4">

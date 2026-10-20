@@ -1,5 +1,7 @@
 "use client";
 
+import { ActionFeedback, useActionFeedback } from "@/components/floating-feedback";
+
 import {
   CheckCircle2,
   ChevronDown,
@@ -18,6 +20,7 @@ import {
 import { Field, inputClass, textareaClass } from "@/components/action-form";
 import { StatusBadge } from "@/components/badges";
 import { EmptyState } from "@/components/empty-state";
+import { FloatingDialog } from "@/components/floating-dialog";
 import { RomaneioPdfButton } from "@/components/romaneio-pdf-button";
 import {
   buildExpeditionRomaneioReport,
@@ -54,13 +57,7 @@ const initialState: ActionState = {
 };
 
 function ActionMessage({ state }: { state: ActionState }) {
-  if (!state.message) return null;
-
-  return (
-    <p className={cn("text-sm font-medium", state.ok ? "text-success" : "text-danger")}>
-      {state.message}
-    </p>
-  );
+  return <ActionFeedback state={state} />;
 }
 
 function VolumeStepper({
@@ -112,6 +109,7 @@ export function ExpeditionLoadControlPanel({
   canPerform,
 }: ExpeditionLoadControlPanelProps) {
   const router = useRouter();
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [expandedGroupIds, setExpandedGroupIds] = useState<Set<string>>(new Set());
   const [expandedPieceIds, setExpandedPieceIds] = useState<Set<string>>(new Set());
@@ -123,6 +121,7 @@ export function ExpeditionLoadControlPanel({
     completeExpeditionLoadControlAction,
     initialState,
   );
+  useActionFeedback(completeState);
   const clientById = useMemo(() => new Map(clients.map((client) => [client.id, client])), [clients]);
   const contractById = useMemo(
     () => new Map(contracts.map((contract) => [contract.id, contract])),
@@ -172,15 +171,18 @@ export function ExpeditionLoadControlPanel({
   );
 
   useEffect(() => {
-    if (!saveState.ok && !completeState.ok) return;
+    if (saveState.ok) router.refresh();
+  }, [saveState, router]);
 
+  useEffect(() => {
+    if (!completeState.ok) return;
     const timeout = window.setTimeout(() => {
-      if (completeState.ok) setSelectedIds(new Set());
+      setSelectedIds(new Set());
+      setConfirmOpen(false);
       router.refresh();
     }, 0);
-
     return () => window.clearTimeout(timeout);
-  }, [completeState.ok, router, saveState.ok]);
+  }, [completeState, router]);
 
   function toggleSelected(id: string) {
     setSelectedIds((current) => {
@@ -243,21 +245,21 @@ export function ExpeditionLoadControlPanel({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 pb-56">
       <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
         A expedição não usa cronômetro. Preencha o controle de carga, salve os volumes e finalize a
         expedição com matrícula e senha do operador.
       </div>
 
       <form action={saveAction} className="space-y-4">
-        <div className="flex flex-col gap-3 rounded-md border border-border bg-white p-3 lg:flex-row lg:items-center lg:justify-between">
+        <div role="toolbar" aria-label="Ações de expedição" className="fixed inset-x-0 bottom-0 z-40 flex flex-wrap items-center justify-between gap-2 border-t border-border bg-white p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-xl lg:left-64">
           <div>
             <p className="font-semibold text-charcoal">Controle de carga</p>
             <p className="text-sm text-muted-foreground">
-              {openRows.length} peça(s) disponível(is) para conferência e embalagem.
+              {selectedIds.size} peça(s) selecionada(s) · {openRows.length} disponível(is).
             </p>
           </div>
-          <div className="flex flex-col gap-2 sm:flex-row">
+          <div className="flex flex-wrap gap-2">
             <button
               type="button"
               onClick={toggleAllVisible}
@@ -268,6 +270,7 @@ export function ExpeditionLoadControlPanel({
                 ? "Limpar seleção"
                 : "Selecionar visíveis"}
             </button>
+            <button type="button" onClick={() => setSelectedIds(new Set())} disabled={!selectedIds.size} className="min-h-11 rounded border border-border px-3 py-2 text-sm disabled:opacity-50">Limpar</button>
             <button
               type="submit"
               disabled={!canPerform || savePending || !visibleOpenRows.length}
@@ -280,6 +283,7 @@ export function ExpeditionLoadControlPanel({
               )}
               Salvar controle
             </button>
+            <button type="button" disabled={!canPerform || !selectedIds.size || savePending} onClick={() => setConfirmOpen(true)} className="min-h-11 rounded bg-charcoal px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">Finalizar expedição</button>
           </div>
         </div>
         <ActionMessage state={saveState} />
@@ -463,6 +467,7 @@ export function ExpeditionLoadControlPanel({
         })}
       </form>
 
+      {confirmOpen && <FloatingDialog title={`Finalizar expedição (${selectedIds.size} peças)`} busy={completePending} onClose={() => setConfirmOpen(false)}>
       <form action={completeAction} className="rounded-md border border-border bg-white p-3">
         <input type="hidden" name="piece_stage_ids_json" value={selectedJson} />
         <div className="mb-3">
@@ -514,9 +519,10 @@ export function ExpeditionLoadControlPanel({
             )}
             Finalizar expedição
           </button>
-          <ActionMessage state={completeState} />
+
         </div>
       </form>
+      </FloatingDialog>}
     </div>
   );
 }

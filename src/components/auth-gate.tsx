@@ -1,4 +1,5 @@
 "use client";
+import { FloatingMessage } from "@/components/floating-feedback";
 
 import { AlertTriangle, LogIn, Wrench } from "lucide-react";
 import Link from "next/link";
@@ -317,7 +318,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   if (state.status === "error") {
     return (
       <AccessMessage tone="red" title="Não foi possível validar o acesso.">
-        {state.message}
+        <FloatingMessage message={state.message} />Atualize a página para tentar novamente.
       </AccessMessage>
     );
   }

@@ -1,5 +1,7 @@
 "use client";
 
+import { FloatingMessage } from "@/components/floating-feedback";
+
 import { Download, Loader2 } from "lucide-react";
 import { useState } from "react";
 import type { ProductionPointingReport } from "@/lib/pointing-report";
@@ -37,7 +39,7 @@ export function PointingReportPdfButton({
         {downloading ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
         {downloading ? "Gerando PDF..." : "Gerar PDF"}
       </button>
-      {error ? <span className="text-xs font-medium text-red-600">{error}</span> : null}
+      <FloatingMessage message={error} />
     </div>
   );
 }

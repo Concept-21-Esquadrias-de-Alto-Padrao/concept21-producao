@@ -1,11 +1,12 @@
 "use client";
 
+import { ActionFeedback } from "@/components/floating-feedback";
+
 import { Loader2, Pencil, Save, Trash2, X } from "lucide-react";
 import { useActionState, useEffect, useMemo, useState } from "react";
 import { deleteClientAction, updateClientAction } from "@/app/actions";
 import { Field, inputClass, textareaClass } from "@/components/action-form";
 import type { Client } from "@/lib/types";
-import { cn } from "@/lib/utils";
 
 type ActionState = {
   ok: boolean;
@@ -70,11 +71,7 @@ function ClientEditForm({
             Cancelar
           </button>
         </div>
-        {state.message ? (
-          <p className={cn("text-sm font-medium", state.ok ? "text-success" : "text-danger")}>
-            {state.message}
-          </p>
-        ) : null}
+        <ActionFeedback state={state} />
       </div>
     </form>
   );
@@ -106,11 +103,7 @@ function ClientDeleteForm({ client }: { client: Client }) {
       >
         {pending ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
       </button>
-      {state.message ? (
-        <span className={cn("max-w-52 text-right text-xs", state.ok ? "text-success" : "text-danger")}>
-          {state.message}
-        </span>
-      ) : null}
+      <ActionFeedback state={state} />
     </form>
   );
 }

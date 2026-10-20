@@ -1,5 +1,7 @@
 "use client";
 
+import { ActionFeedback, useActionFeedback } from "@/components/floating-feedback";
+
 import {
   AlertTriangle,
   CheckCircle2,
@@ -29,6 +31,7 @@ import { Field, inputClass, textareaClass } from "@/components/action-form";
 import { StatusBadge } from "@/components/badges";
 import { EmptyState } from "@/components/empty-state";
 import { ExpeditionLoadControlPanel } from "@/components/expedition-load-control-panel";
+import { FloatingDialog } from "@/components/floating-dialog";
 import { ExpeditionArchivePanel } from "@/components/expedition-archive-panel";
 import { isExpeditionArchived } from "@/lib/expedition-archive";
 import { useServerSyncedNow } from "@/hooks/use-server-synced-now";
@@ -141,7 +144,7 @@ function ReleaseProductionButton({ prodId, piecesCount }: { prodId: string; piec
     if (!state.ok) return;
     const timeout = window.setTimeout(() => router.refresh(), 0);
     return () => window.clearTimeout(timeout);
-  }, [router, state.ok]);
+  }, [router, state]);
 
   return (
     <form action={formAction} className="flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -154,11 +157,7 @@ function ReleaseProductionButton({ prodId, piecesCount }: { prodId: string; piec
         {pending ? <Loader2 className="size-4 animate-spin" /> : <CheckCircle2 className="size-4" />}
         Liberar {piecesCount} peça(s) para produção
       </button>
-      {state.message ? (
-        <span className={cn("text-xs font-medium", state.ok ? "text-success" : "text-danger")}>
-          {state.message}
-        </span>
-      ) : null}
+      <ActionFeedback state={state} />
     </form>
   );
 }
@@ -174,7 +173,7 @@ function RevertReleaseButton({ prodId }: { prodId: string }) {
     if (!state.ok) return;
     const timeout = window.setTimeout(() => router.refresh(), 0);
     return () => window.clearTimeout(timeout);
-  }, [router, state.ok]);
+  }, [router, state]);
 
   return (
     <form action={formAction} className="flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -187,11 +186,7 @@ function RevertReleaseButton({ prodId }: { prodId: string }) {
         {pending ? <Loader2 className="size-4 animate-spin" /> : <RotateCcw className="size-4" />}
         Estornar liberação
       </button>
-      {state.message ? (
-        <span className={cn("text-xs font-medium", state.ok ? "text-success" : "text-danger")}>
-          {state.message}
-        </span>
-      ) : null}
+      <ActionFeedback state={state} />
     </form>
   );
 }
@@ -208,7 +203,7 @@ function IndirectActivityStartForm({
     if (!state.ok) return;
     const timeout = window.setTimeout(() => router.refresh(), 0);
     return () => window.clearTimeout(timeout);
-  }, [router, state.ok]);
+  }, [router, state]);
 
   return (
     <form action={formAction} className="rounded-md border border-border bg-white p-3">
@@ -263,11 +258,7 @@ function IndirectActivityStartForm({
           {pending ? <Loader2 className="size-4 animate-spin" /> : <Play className="size-4" />}
           Iniciar atividade
         </button>
-        {state.message ? (
-          <span className={cn("text-sm font-medium", state.ok ? "text-success" : "text-danger")}>
-            {state.message}
-          </span>
-        ) : null}
+        <ActionFeedback state={state} />
       </div>
     </form>
   );
@@ -285,7 +276,7 @@ function IndirectActivityFinishForm({
     if (!state.ok) return;
     const timeout = window.setTimeout(() => router.refresh(), 0);
     return () => window.clearTimeout(timeout);
-  }, [router, state.ok]);
+  }, [router, state]);
 
   return (
     <form action={formAction} className="mt-3 grid gap-2 md:grid-cols-[1fr_1fr_auto]">
@@ -323,16 +314,7 @@ function IndirectActivityFinishForm({
         {pending ? <Loader2 className="size-4 animate-spin" /> : <CheckCircle2 className="size-4" />}
         Finalizar
       </button>
-      {state.message ? (
-        <span
-          className={cn(
-            "md:col-span-3 text-sm font-medium",
-            state.ok ? "text-success" : "text-danger",
-          )}
-        >
-          {state.message}
-        </span>
-      ) : null}
+      <ActionFeedback state={state} />
     </form>
   );
 }
@@ -462,6 +444,8 @@ export function ProductionPointingBoard({
     adjustProductionPieceStageTimeAction,
     initialState,
   );
+  useActionFeedback(state);
+  useActionFeedback(timeState);
   const clientById = useMemo(() => new Map(clients.map((client) => [client.id, client])), [clients]);
   const contractById = useMemo(
     () => new Map(contracts.map((contract) => [contract.id, contract])),
@@ -646,7 +630,7 @@ export function ProductionPointingBoard({
     }, 0);
 
     return () => window.clearTimeout(timeout);
-  }, [router, state.ok]);
+  }, [router, state]);
 
   useEffect(() => {
     if (!timeState.ok) return;
@@ -657,7 +641,7 @@ export function ProductionPointingBoard({
     }, 0);
 
     return () => window.clearTimeout(timeout);
-  }, [router, timeState.ok]);
+  }, [router, timeState]);
 
   function openTimeEditor(pieceStage: ProductionPieceStage) {
     setTimezoneOffsetMinutes(new Date().getTimezoneOffset());
@@ -702,11 +686,6 @@ export function ProductionPointingBoard({
     setActiveAction(null);
   }
 
-  function resetAction() {
-    setSelectedIds(new Set());
-    setActiveAction(null);
-    setParticipantRegistrations("");
-  }
 
   function startSinglePieceAction(pieceStageId: string, action: OperationalPointingAction) {
     setSelectedIds(new Set([pieceStageId]));
@@ -847,7 +826,7 @@ export function ProductionPointingBoard({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 pb-64 sm:pb-44">
       {activePanel === "production" && (
         <section aria-label="Filtros de apontamento" className="grid gap-3 rounded-md border border-border bg-white p-4 sm:grid-cols-2 lg:grid-cols-3">
           <Field label="Buscar na fila">
@@ -975,13 +954,13 @@ export function ProductionPointingBoard({
         </>
       ) : (
         <>
-      <div className="hidden flex-col gap-3 rounded-md border border-border bg-white p-3 md:flex lg:flex-row lg:items-center lg:justify-between">
+      <div className="fixed inset-x-0 bottom-0 z-40 flex flex-col gap-2 border-t border-border bg-white p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-4px_16px_#0001] lg:left-64 lg:flex-row lg:items-center lg:justify-between" role="toolbar" aria-label="Ações de apontamento">
         <div>
           <p className="font-semibold text-charcoal">
             {selectedRows.length} peça(s) selecionada(s)
           </p>
           <p className="text-sm text-muted-foreground">
-            Selecione peças da mesma etapa e confirme com matrícula e senha do operador.
+            Selecione as peças e escolha uma ação.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -996,12 +975,14 @@ export function ProductionPointingBoard({
               ? "Limpar seleção"
               : "Selecionar visíveis"}
           </button>
+          <button type="button" onClick={clearQueueSelection} disabled={!selectedIds.size} className="min-h-11 rounded border border-border px-3 py-2 text-sm disabled:opacity-50">Limpar</button>
           {operationalActions.map((action) => {
             const Icon = actionIcons[action];
             const allowed = action === "retornar" ? canRollback : canPerform;
             const disabled =
               !allowed ||
               selectedIds.size === 0 ||
+              !selectedRows.every((row) => availableActionsForPieceStage(row).includes(action)) ||
               (action === "retornar" && !canRollbackActiveStage);
             return (
               <button
@@ -1025,17 +1006,12 @@ export function ProductionPointingBoard({
       </div>
 
       {activeAction ? (
-        <>
-          <button
-            type="button"
-            aria-label="Cancelar apontamento"
-            onClick={resetAction}
-            className="fixed inset-0 z-40 bg-black/20 md:hidden"
-          />
+        <FloatingDialog title={`Confirmar ${actionLabels[activeAction]}`} busy={pending} onClose={() => setActiveAction(null)}>
           <form
             action={formAction}
-            className="rounded-md border border-accent bg-orange-50/50 p-4 shadow-2xl max-md:fixed max-md:inset-x-3 max-md:bottom-3 max-md:z-50 max-md:max-h-[calc(100dvh-1.5rem)] max-md:overflow-y-auto md:shadow-none"
+            className="space-y-3"
           >
+          <p className="text-sm text-muted-foreground">{Array.from(new Set(selectedRows.map((row) => { const prod = prodById.get(row.prod_id); const contract = prod ? contractById.get(prod.contract_id) : undefined; return `${contract?.contract_number ?? ""} · PROD ${prod?.prod_number ?? ""}`; }))).join("; ")}</p>
           <input type="hidden" name="action_type" value={activeAction} />
           <input type="hidden" name="piece_stage_ids_json" value={selectedJson} />
           <div className="mb-3 flex items-start justify-between gap-3">
@@ -1049,7 +1025,7 @@ export function ProductionPointingBoard({
             </div>
             <button
               type="button"
-              onClick={resetAction}
+              onClick={() => setActiveAction(null)} disabled={pending}
               className="inline-flex size-9 flex-none items-center justify-center rounded-md border border-border bg-white text-muted-foreground transition hover:bg-muted hover:text-charcoal"
               aria-label="Cancelar apontamento"
             >
@@ -1174,18 +1150,14 @@ export function ProductionPointingBoard({
               {pending ? <Loader2 className="size-4 animate-spin" /> : <CheckCircle2 className="size-4" />}
               Registrar apontamento
             </button>
-            {state.message ? (
-              <p className={cn("text-sm font-medium", state.ok ? "text-success" : "text-danger")}>
-                {state.message}
-              </p>
-            ) : null}
+
           </div>
           </form>
-        </>
+        </FloatingDialog>
       ) : null}
 
       {editingTimeStage ? (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black/30 p-3">
+        <FloatingDialog title="Ajustar tempo produtivo" busy={timePending} onClose={() => setEditingTimeStage(null)}>
           <form
             action={timeFormAction}
             className="w-full max-w-xl rounded-md border border-border bg-white p-4 shadow-2xl"
@@ -1206,6 +1178,7 @@ export function ProductionPointingBoard({
               <button
                 type="button"
                 onClick={() => setEditingTimeStage(null)}
+                disabled={timePending}
                 className="inline-flex size-9 items-center justify-center rounded-md border border-border text-muted-foreground transition hover:bg-muted hover:text-charcoal"
                 aria-label="Fechar ajuste de tempo"
               >
@@ -1282,19 +1255,10 @@ export function ProductionPointingBoard({
                 )}
                 Salvar ajuste
               </button>
-              {timeState.message ? (
-                <p
-                  className={cn(
-                    "text-sm font-medium",
-                    timeState.ok ? "text-success" : "text-danger",
-                  )}
-                >
-                  {timeState.message}
-                </p>
-              ) : null}
+
             </div>
           </form>
-        </div>
+        </FloatingDialog>
       ) : null}
 
       {openRows.length === 0 ? (
@@ -1412,9 +1376,10 @@ export function ProductionPointingBoard({
                               : "border-border hover:border-accent/50",
                           )}
                         >
-                          <label className="hidden items-start md:flex">
+                          <label className="flex min-h-11 items-center gap-2">
                             <input
                               type="checkbox"
+                              aria-label={`Selecionar ${piece?.piece_code ?? "peça"}`}
                               checked={selectedIds.has(pieceStage.id)}
                               onChange={() => toggleSelected(pieceStage.id)}
                               className="mt-1 size-5 rounded border-border"

@@ -1,5 +1,7 @@
 "use client";
 
+import { FloatingMessage } from "@/components/floating-feedback";
+
 import { AlertTriangle, CheckCircle2, Loader2, Power, ShieldCheck, Wrench } from "lucide-react";
 import { useState } from "react";
 import { EmptyState } from "@/components/empty-state";
@@ -47,6 +49,7 @@ export function SystemMaintenanceSettings() {
   const data = resource.data;
   const loading = resource.loading && !data;
   const [saving, setSaving] = useState(false);
+  const [messageOk, setMessageOk] = useState(false);
   const [message, setMessage] = useState("");
 
   async function setMaintenance(enabled: boolean) {
@@ -61,6 +64,7 @@ export function SystemMaintenanceSettings() {
     try {
       setSaving(true);
       setMessage("");
+      setMessageOk(false);
 
       const response = await fetch("/api/settings/system", {
         method: "POST",
@@ -73,6 +77,7 @@ export function SystemMaintenanceSettings() {
 
       const data = await parseResponse(response);
       resource.setData(data);
+      setMessageOk(true);
       setMessage(enabled ? "Manutenção ativada." : "Manutenção desativada.");
     } catch (error) {
       setMessage(
@@ -207,18 +212,7 @@ export function SystemMaintenanceSettings() {
           </div>
         </div>
 
-        {message ? (
-          <p
-            className={cn(
-              "rounded-md border px-3 py-2 text-sm font-medium",
-              message.includes("Não")
-                ? "border-red-200 bg-red-50 text-red-700"
-                : "border-emerald-200 bg-emerald-50 text-emerald-700",
-            )}
-          >
-            {message}
-          </p>
-        ) : null}
+        <FloatingMessage message={message} kind={messageOk ? "success" : "error"} />
       </PanelBody>
     </Panel>
   );

@@ -1,5 +1,7 @@
 "use client";
 
+import { ActionFeedback } from "@/components/floating-feedback";
+
 import { Loader2, Save } from "lucide-react";
 import { type ReactNode, useActionState } from "react";
 import {
@@ -39,7 +41,7 @@ import {
   type ShippingRecord,
 } from "@/lib/types";
 import { POINTING_STAGE_MAX_ORDER, POINTING_STAGE_MIN_ORDER } from "@/lib/pointing";
-import { cn, formatDate, formatDateTime } from "@/lib/utils";
+import { formatDate, formatDateTime } from "@/lib/utils";
 
 type ActionState = {
   ok: boolean;
@@ -92,13 +94,7 @@ function datetimeInputValue(value?: string | null) {
 }
 
 function ActionMessage({ state }: { state: ActionState }) {
-  if (!state.message) return null;
-
-  return (
-    <p className={cn("text-sm font-medium", state.ok ? "text-success" : "text-danger")}>
-      {state.message}
-    </p>
-  );
+  return <ActionFeedback state={state} />;
 }
 
 function SubmitButton({ pending, label = "Salvar" }: { pending: boolean; label?: string }) {

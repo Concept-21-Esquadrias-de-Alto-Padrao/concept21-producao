@@ -1,5 +1,9 @@
 "use client";
 
+import { FloatingMessage } from "@/components/floating-feedback";
+
+import { ActionFeedback } from "@/components/floating-feedback";
+
 import {
   AlertTriangle,
   CheckCircle2,
@@ -185,13 +189,7 @@ function datetimeLocalValue(value: string | number | Date | null | undefined) {
 }
 
 function ActionMessage({ state }: { state: ActionState }) {
-  if (!state.message) return null;
-
-  return (
-    <p className={cn("text-sm font-medium", state.ok ? "text-success" : "text-danger")}>
-      {state.message}
-    </p>
-  );
+  return <ActionFeedback state={state} />;
 }
 
 function DeletePieceButton({ prodId, pieceId }: { prodId: string; pieceId: string }) {
@@ -1538,9 +1536,7 @@ export function ProdPiecesPanel({
               Lendo PDF...
             </p>
           ) : null}
-          {previewError ? (
-            <p className="mt-3 text-sm font-medium text-danger">{previewError}</p>
-          ) : null}
+          <FloatingMessage message={previewError} />
 
           {preview ? (
             <form action={formAction} className="mt-4 space-y-4">

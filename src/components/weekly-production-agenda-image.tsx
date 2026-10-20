@@ -1,5 +1,7 @@
 "use client";
 
+import { FloatingMessage } from "@/components/floating-feedback";
+
 import { Download, ImageDown } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
@@ -645,7 +647,7 @@ export function WeeklyProductionAgendaImage({
           <ImageDown className="size-4" />
           Copiar imagem
         </button>
-        {message ? <span className="text-sm font-medium text-success">{message}</span> : null}
+        <FloatingMessage message={message} kind="success" />
       </div>
     </div>
   );

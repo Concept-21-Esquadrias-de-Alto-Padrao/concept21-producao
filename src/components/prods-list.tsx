@@ -1,5 +1,7 @@
 "use client";
 
+import { ActionFeedback } from "@/components/floating-feedback";
+
 import { Eye, Loader2, Pencil, Save, Trash2, X } from "lucide-react";
 import Link from "next/link";
 import { useActionState, useEffect, useState } from "react";
@@ -19,7 +21,7 @@ import {
 } from "@/lib/types";
 import type { ProdContext } from "@/lib/production";
 import { describeMaterialConfirmation } from "@/lib/production";
-import { cn, formatDate } from "@/lib/utils";
+import { formatDate } from "@/lib/utils";
 
 type ActionState = {
   ok: boolean;
@@ -203,11 +205,7 @@ function ProdEditForm({
             Cancelar
           </button>
         </div>
-        {state.message ? (
-          <p className={cn("text-sm font-medium", state.ok ? "text-success" : "text-danger")}>
-            {state.message}
-          </p>
-        ) : null}
+        <ActionFeedback state={state} />
       </div>
     </form>
   );
@@ -239,11 +237,7 @@ function ProdDeleteForm({ context }: { context: ProdContext }) {
       >
         {pending ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
       </button>
-      {state.message ? (
-        <span className={cn("max-w-56 text-right text-xs", state.ok ? "text-success" : "text-danger")}>
-          {state.message}
-        </span>
-      ) : null}
+      <ActionFeedback state={state} />
     </form>
   );
 }

@@ -1,5 +1,7 @@
 "use client";
 
+import { FloatingMessage } from "@/components/floating-feedback";
+
 import { ArrowLeft, LogIn, UserPlus } from "lucide-react";
 import Link from "next/link";
 import { type FormEvent, useState } from "react";
@@ -110,23 +112,9 @@ export function AuthForm({ mode, notice }: { mode: AuthMode; notice?: string }) 
         </div>
 
         <form onSubmit={submit} className="space-y-4">
-          {notice && !message ? (
-            <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">
-              {notice}
-            </div>
-          ) : null}
+          <FloatingMessage message={!message ? notice : null} kind="success" />
 
-          {message ? (
-            <div
-              className={
-                success
-                  ? "rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700"
-                  : "rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700"
-              }
-            >
-              {message}
-            </div>
-          ) : null}
+          <FloatingMessage message={message} kind={success ? "success" : "error"} />
 
           {isSignup ? (
             <label className="block space-y-1.5">

@@ -1,5 +1,7 @@
 "use client";
 
+import { ActionFeedback } from "@/components/floating-feedback";
+
 import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { setExpeditionArchiveAction } from "@/app/expedition-archive-actions";
@@ -59,7 +61,7 @@ export function ExpeditionArchivePanel({ clients, contracts, prods, activeRows, 
       <button disabled={pending || !selectedRows.length} className="rounded bg-charcoal px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">
         {pending ? "Salvando…" : `${mode === "archive" ? "Arquivar" : "Reativar"} ${selectedRows.length} peça(s)`}
       </button>
-      {state.message && <p role="status" className={state.ok ? "text-success" : "text-danger"}>{state.message}</p>}
+      <ActionFeedback state={state} />
     </form>
   </details>;
 }

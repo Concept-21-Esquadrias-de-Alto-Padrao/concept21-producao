@@ -1,12 +1,14 @@
 "use client";
 
+import { ActionFeedback } from "@/components/floating-feedback";
+
 import { Eye, Loader2, Pencil, Save, X } from "lucide-react";
 import { useActionState, useEffect, useMemo, useState } from "react";
 import { updateContractAction } from "@/app/actions";
 import { Field, inputClass, textareaClass } from "@/components/action-form";
 import { ContractAddressFields } from "@/components/contract-address-fields";
 import type { Client, ProductionContract, ProductionProd } from "@/lib/types";
-import { cn, formatDate } from "@/lib/utils";
+import { formatDate } from "@/lib/utils";
 
 type ActionState = {
   ok: boolean;
@@ -117,11 +119,7 @@ function ContractEditForm({
             Cancelar
           </button>
         </div>
-        {state.message ? (
-          <p className={cn("text-sm font-medium", state.ok ? "text-success" : "text-danger")}>
-            {state.message}
-          </p>
-        ) : null}
+        <ActionFeedback state={state} />
       </div>
     </form>
   );

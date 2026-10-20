@@ -1,5 +1,7 @@
 "use client";
 
+import { ActionFeedback } from "@/components/floating-feedback";
+
 import { Loader2, Save } from "lucide-react";
 import { useActionState } from "react";
 import { cn } from "@/lib/utils";
@@ -39,16 +41,7 @@ export function ActionForm({
           {pending ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
           {pending ? "Salvando..." : submitLabel}
         </button>
-        {state.message ? (
-          <p
-            className={cn(
-              "text-sm font-medium",
-              state.ok ? "text-success" : "text-danger",
-            )}
-          >
-            {state.message}
-          </p>
-        ) : null}
+        <ActionFeedback state={state} />
       </div>
     </form>
   );

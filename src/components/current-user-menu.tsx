@@ -1,4 +1,5 @@
 "use client";
+import { FloatingMessage } from "@/components/floating-feedback";
 
 import { LogIn, LogOut, ShieldCheck, UserRound } from "lucide-react";
 import Link from "next/link";
@@ -220,9 +221,7 @@ export function CurrentUserMenu() {
   if (state.status === "error") {
     return (
       <div className="flex items-center gap-2">
-        <span className="hidden max-w-52 truncate text-xs text-red-600 sm:inline">
-          {state.message}
-        </span>
+        <FloatingMessage message={state.message} />
         <button
           type="button"
           onClick={handleSignOut}

@@ -1,5 +1,7 @@
 "use client";
 
+import { FloatingMessage } from "@/components/floating-feedback";
+
 import { useEffect, useState } from "react";
 import { Field, inputClass } from "@/components/action-form";
 import { BRAZILIAN_STATES } from "@/lib/brazil-locations";
@@ -128,7 +130,7 @@ export function ContractAddressFields({ defaults }: ContractAddressFieldsProps) 
             ))}
             {city && !cities.includes(city) ? <option value={city}>{city}</option> : null}
           </select>
-          {cityError ? <span className="text-xs font-medium text-danger">{cityError}</span> : null}
+          <FloatingMessage message={cityError} />
         </Field>
       </div>
     </div>
