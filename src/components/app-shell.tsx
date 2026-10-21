@@ -9,7 +9,6 @@ import {
   Home,
   Settings,
   ShieldCheck,
-  Truck,
   UserRound,
 } from "lucide-react";
 import Link from "next/link";
@@ -23,7 +22,7 @@ import {
   isCurrentUserMaster,
   type CurrentUserAccess,
 } from "@/lib/auth-client";
-import { hasAnyPermission, MODULE_ACCESS } from "@/lib/module-access";
+import { canAccessModule, MODULE_ACCESS } from "@/lib/module-access";
 import { hasSupabaseBrowserEnv } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 
@@ -43,7 +42,6 @@ const navItems = [
     icon: ClipboardCheck,
     permissions: MODULE_ACCESS.pointing,
   },
-  { href: "/transport", label: "Transporte", icon: Truck, permissions: MODULE_ACCESS.transport },
   { href: "/reports", label: "Relatórios", icon: BarChart3, permissions: MODULE_ACCESS.reports },
   { href: "/settings", label: "Configurações", icon: Settings, permissions: MODULE_ACCESS.settings },
 ];
@@ -55,7 +53,7 @@ function canShowNavItem(access: AccessState, permissions: readonly string[]) {
   if (access === "demo") return true;
   if (!access || access === "loading") return false;
   if (isCurrentUserMaster(access)) return true;
-  return hasAnyPermission(access.permissions, permissions);
+  return canAccessModule({ isMaster: false, permissions: access.permissions }, permissions);
 }
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -133,7 +131,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             Controle por PROD
           </div>
           <p className="mt-2 leading-5">
-            Materiais, etapas, rotas e relatórios operacionais no mesmo fluxo.
+            Materiais, etapas, expedição e relatórios operacionais no mesmo fluxo.
           </p>
         </div>
       </aside>

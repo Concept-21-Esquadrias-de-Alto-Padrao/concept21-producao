@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { TRANSPORT_ENABLED, TRANSPORT_DISABLED_MESSAGE } from "@/lib/transport-module";
 import {
   getErrorMessage,
   getHttpStatus,
@@ -135,6 +136,7 @@ async function assertRecordExists(
 }
 
 export async function GET() {
+  if (!TRANSPORT_ENABLED) return NextResponse.json({ error: TRANSPORT_DISABLED_MESSAGE }, { status: 410 });
   try {
     const context = await requireLogisticsAccess();
     const data = await loadLogisticsData(context);
@@ -146,6 +148,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  if (!TRANSPORT_ENABLED) return NextResponse.json({ error: TRANSPORT_DISABLED_MESSAGE }, { status: 410 });
   try {
     const context = await requireLogisticsAccess();
     const body = (await request.json().catch(() => ({}))) as LogisticsActionBody;

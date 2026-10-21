@@ -1,3 +1,5 @@
+import { isTransportPermission, TRANSPORT_ENABLED } from "./transport-module";
+
 export const MODULE_ACCESS = {
   dashboard: ["production.dashboard.view"],
   clients: ["production.clients.view"],
@@ -89,7 +91,8 @@ export function canAccessModule(
   access: PermissionLookup,
   permissionKeys: readonly string[],
 ) {
-  return access.isMaster || hasAnyPermission(access.permissions, permissionKeys);
+  const enabledPermissions = permissionKeys.filter((key) => TRANSPORT_ENABLED || !isTransportPermission(key));
+  return enabledPermissions.length > 0 && (access.isMaster || hasAnyPermission(access.permissions, enabledPermissions));
 }
 
 export function firstAllowedAppRoute(access: PermissionLookup) {

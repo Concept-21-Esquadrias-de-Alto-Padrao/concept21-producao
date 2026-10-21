@@ -1,3 +1,4 @@
+import { isTransportStage, TRANSPORT_ENABLED, TRANSPORT_DISABLED_MESSAGE } from "@/lib/transport-module";
 import { NextResponse } from "next/server";
 import {
   getErrorMessage,
@@ -63,7 +64,7 @@ async function loadOperationalData(context: MasterAccessContext) {
 
   return {
     departments: (departments.data ?? []) as Department[],
-    stages: (stages.data ?? []) as ProductionStage[],
+    stages: ((stages.data ?? []) as ProductionStage[]).filter((stage) => TRANSPORT_ENABLED || !isTransportStage(stage)),
     storageLocations: (locations.data ?? []) as StorageLocation[],
   };
 }
@@ -76,13 +77,16 @@ async function assertRecordExists(
 ) {
   const { data, error } = await context.admin
     .from(table)
-    .select("id")
+    .select("*")
     .eq("company_id", context.profile.company_id)
     .eq("id", id)
     .maybeSingle();
 
   if (error) throw new HttpError(500, error.message);
   if (!data) throw new HttpError(404, `${label} não encontrado.`);
+  if (table === "production_stages" && !TRANSPORT_ENABLED && isTransportStage(data)) {
+    throw new HttpError(410, TRANSPORT_DISABLED_MESSAGE);
+  }
 }
 
 export async function GET() {
@@ -100,6 +104,11 @@ export async function POST(request: Request) {
   try {
     const context = await requireMasterAccess();
     const body = (await request.json().catch(() => ({}))) as OperationalActionBody;
+
+    if (!TRANSPORT_ENABLED && ["createStage", "updateStage"].includes(body.action ?? "") &&
+        isTransportStage({ name: text(body.name), required_permission: text(body.requiredPermission) })) {
+      throw new HttpError(410, TRANSPORT_DISABLED_MESSAGE);
+    }
 
     switch (body.action) {
       case "createDepartment": {

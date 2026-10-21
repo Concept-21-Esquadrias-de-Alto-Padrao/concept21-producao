@@ -21,7 +21,7 @@ export const prodStatusLabels: LabelMap<ProdStatus> = {
   pausada: "Pausada",
   embalagem: "Embalagem",
   expedicao: "Expedição",
-  aguardando_frete: "Aguardando frete",
+  aguardando_frete: "Pendência externa (legado)",
   concluida: "Concluída",
   cancelada: "Cancelada",
 };

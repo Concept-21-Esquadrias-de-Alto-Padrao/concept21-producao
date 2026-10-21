@@ -308,13 +308,10 @@ function ContractsReport({
                   {contract.status}
                 </span>
               </div>
-              <div className="mt-3 grid gap-2 text-sm sm:grid-cols-4">
+              <div className="mt-3 grid gap-2 text-sm sm:grid-cols-3">
                 <span className="rounded-md bg-muted px-3 py-2">{prods.length} PROD(s)</span>
                 <span className="rounded-md bg-muted px-3 py-2">
                   {prods.filter((prod) => prod.status === "em_producao").length} em produção
-                </span>
-                <span className="rounded-md bg-muted px-3 py-2">
-                  {prods.filter((prod) => prod.status === "aguardando_frete").length} aguardando frete
                 </span>
                 <span className="rounded-md bg-muted px-3 py-2">
                   Entrega: {formatDate(contract.general_delivery_forecast)}

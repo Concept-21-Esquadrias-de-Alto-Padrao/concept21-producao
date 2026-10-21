@@ -1,3 +1,4 @@
+import { isProdStatusSelectable } from "@/lib/transport-module";
 import { Factory, Plus } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -173,7 +174,7 @@ export default async function ProdsPage({
                   </Field>
                   <Field label="Status geral">
                     <select name="status" className={inputClass} defaultValue="planejamento">
-                      {PROD_STATUSES.map((status) => (
+                      {PROD_STATUSES.filter(isProdStatusSelectable).map((status) => (
                         <option key={status} value={status}>
                           {prodStatusLabels[status]}
                         </option>

@@ -1,5 +1,7 @@
 "use client";
 
+import { isProdStatusSelectable } from "@/lib/transport-module";
+
 import { ActionFeedback } from "@/components/floating-feedback";
 
 import { Eye, Loader2, Pencil, Save, Trash2, X } from "lucide-react";
@@ -156,6 +158,9 @@ function ProdEditForm({
             defaultValue={context.prod.current_stage_id ?? ""}
           >
             <option value="">Sem etapa</option>
+            {context.prod.current_stage_id && !stages.some((stage) => stage.id === context.prod.current_stage_id) && (
+              <option value={context.prod.current_stage_id}>Etapa externa (legado)</option>
+            )}
             {stages.map((stage) => (
               <option key={stage.id} value={stage.id}>
                 {stage.name}
@@ -165,7 +170,7 @@ function ProdEditForm({
         </Field>
         <Field label="Status geral">
           <select name="status" className={inputClass} defaultValue={context.prod.status}>
-            {PROD_STATUSES.map((status) => (
+            {PROD_STATUSES.filter((status) => isProdStatusSelectable(status) || status === context.prod.status).map((status) => (
               <option key={status} value={status}>
                 {prodStatusLabels[status]}
               </option>

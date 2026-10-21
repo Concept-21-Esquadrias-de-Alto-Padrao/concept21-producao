@@ -8,6 +8,7 @@ import { PointingSettingsManager } from "@/components/pointing-settings-manager"
 import { SecuritySettings } from "@/components/security-settings";
 import { SystemMaintenanceSettings } from "@/components/system-maintenance-settings";
 import { Tabs } from "@/components/tabs";
+import { TRANSPORT_ENABLED } from "@/lib/transport-module";
 import type { SettingsTabId } from "@/lib/module-access";
 
 function SettingsArea({
@@ -122,8 +123,8 @@ export function ProductionSettingsTabs({
   const searchParams = useSearchParams();
   const tabParam = searchParams.get("tab") ?? "";
   const allowedTabs = new Set(allowedTabIds);
-  const visibleTabs = settingsTabs.filter((tab) => allowedTabs.has(tab.id));
-  const defaultTab = allowedTabs.has(tabParam as SettingsTabId)
+  const visibleTabs = settingsTabs.filter((tab) => allowedTabs.has(tab.id) && (TRANSPORT_ENABLED || tab.id !== "logistics"));
+  const defaultTab = visibleTabs.some((tab) => tab.id === tabParam)
     ? tabParam
     : visibleTabs[0]?.id;
 

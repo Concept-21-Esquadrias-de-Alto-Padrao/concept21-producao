@@ -1,3 +1,4 @@
+import { TRANSPORT_ENABLED } from "./transport-module";
 import {
   freightStatusLabels,
   materialConfirmationLabels,
@@ -553,7 +554,7 @@ export function getAttentionItems(snapshot: ProductionSnapshot) {
         });
       }
 
-      if (context.prod.status === "aguardando_frete") {
+      if (TRANSPORT_ENABLED && context.prod.status === "aguardando_frete") {
         issues.push({
           prod: context,
           reason: "PROD sem frete programado",

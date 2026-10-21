@@ -1,12 +1,9 @@
 import {
   AlertTriangle,
-  CalendarDays,
   Factory,
   Gauge,
   PackageCheck,
   Plus,
-  Truck,
-  WalletCards,
 } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -23,10 +20,8 @@ import {
   calculateStageProductivity,
   getAttentionItems,
   getProdContexts,
-  getRoutesForDate,
-  getTodayIsoDate,
 } from "@/lib/production";
-import { freightStatusLabels, prodStatusLabels } from "@/lib/labels";
+import { prodStatusLabels } from "@/lib/labels";
 import {
   appNavigationPermissionKeys,
   canAccessModule,
@@ -34,7 +29,7 @@ import {
   MODULE_ACCESS,
 } from "@/lib/module-access";
 import { formatDurationClock } from "@/lib/pointing";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatDate } from "@/lib/utils";
 import { getCurrentPermissionFlags } from "@/lib/server-access";
 import { PROD_STATUSES, type ProductionSnapshot } from "@/lib/types";
 
@@ -191,7 +186,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const dashboardNowMs = now.getTime();
   const stageProductivity = calculateStageProductivity(filteredSnapshot, dashboardNowMs);
   const attentionItems = getAttentionItems(filteredSnapshot);
-  const routesToday = getRoutesForDate(snapshot, getTodayIsoDate());
   const contexts = getProdContexts(snapshot);
 
   return (
@@ -199,24 +193,15 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       <DashboardAutoRefresh />
       <PageHeader
         title="Dashboard de Produção"
-        description="Visão operacional por PROD, materiais, etapas e fretes. A base demo aparece automaticamente enquanto o Supabase não estiver configurado."
+        description="Acompanhe PRODs, materiais, etapas e expedição."
         actions={
-          <>
-            <Link
-              href="/prods"
-              className="inline-flex min-h-11 items-center gap-2 rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground hover:bg-orange-500"
-            >
-              <Plus className="size-4" />
-              Nova PROD
-            </Link>
-            <Link
-              href="/transport?tab=freights"
-              className="inline-flex min-h-11 items-center gap-2 rounded-md border border-border bg-white px-4 py-2 text-sm font-semibold text-charcoal hover:bg-muted"
-            >
-              <Truck className="size-4" />
-              Novo frete
-            </Link>
-          </>
+          <Link
+            href="/prods"
+            className="inline-flex min-h-11 items-center gap-2 rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground hover:bg-orange-500"
+          >
+            <Plus className="size-4" />
+            Nova PROD
+          </Link>
         }
       />
 
@@ -360,7 +345,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         </div>
       </form>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+      <div className="grid gap-4 sm:grid-cols-3">
         <StatCard
           label="PRODs em andamento"
           value={metrics.prodsInProgress}
@@ -380,19 +365,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           value={metrics.prodsAwaitingMaterials}
           hint="Confirmação parcial, pendente ou indisponível."
           icon={PackageCheck}
-        />
-        <StatCard
-          label="Fretes hoje"
-          value={metrics.freightsToday}
-          hint="Rotas programadas para hoje."
-          icon={CalendarDays}
-        />
-        <StatCard
-          label="Fretes no período"
-          value={formatCurrency(metrics.freightValues.expected)}
-          hint="Alternância previsto/contratado/realizado fica na tela de relatórios."
-          icon={WalletCards}
-          tone="success"
         />
       </div>
 
@@ -479,7 +451,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
       <DashboardCharts snapshot={filteredSnapshot} />
 
-      <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
+      <div className="grid gap-4">
         <Panel>
           <PanelHeader
             title="Painel de atenção"
@@ -520,59 +492,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                 </p>
               </article>
             ))}
-          </PanelBody>
-        </Panel>
-
-        <Panel>
-          <PanelHeader
-            title="Rotas do dia"
-            description="Resumo das rotas e ação rápida para relatório."
-          />
-          <PanelBody className="space-y-3">
-            {routesToday.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Não há rotas para hoje.</p>
-            ) : (
-              routesToday.map(({ freight, stops, prodCount, extraCount }) => (
-                <article
-                  key={freight.id}
-                  className="rounded-md border border-border bg-white p-3"
-                >
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                    <div>
-                      <p className="font-semibold text-charcoal">{freight.title}</p>
-                      <p className="mt-1 text-sm text-muted-foreground">
-                        {freight.planned_departure_time ?? "Sem horário"} ·{" "}
-                        {freight.driver ?? "Sem motorista"} ·{" "}
-                        {freight.vehicle ?? "Sem veículo"}
-                      </p>
-                    </div>
-                    <span className="rounded-md bg-zinc-100 px-2 py-1 text-xs font-semibold text-zinc-700 ring-1 ring-zinc-200">
-                      {freightStatusLabels[freight.status]}
-                    </span>
-                  </div>
-                  <div className="mt-3 grid grid-cols-3 gap-2 text-center text-sm">
-                    <span className="rounded-md bg-muted p-2">
-                      <strong className="block text-charcoal">{stops.length}</strong>
-                      Paradas
-                    </span>
-                    <span className="rounded-md bg-muted p-2">
-                      <strong className="block text-charcoal">{prodCount}</strong>
-                      PRODs
-                    </span>
-                    <span className="rounded-md bg-muted p-2">
-                      <strong className="block text-charcoal">{extraCount}</strong>
-                      Avulsos
-                    </span>
-                  </div>
-                  <Link
-                    href={`/transport?tab=daily&date=${freight.freight_date}&routeId=${freight.id}`}
-                    className="mt-3 inline-flex min-h-10 w-full items-center justify-center rounded-md bg-charcoal px-3 py-2 text-sm font-semibold text-white hover:bg-black"
-                  >
-                    Abrir rota e copiar relatório
-                  </Link>
-                </article>
-              ))
-            )}
           </PanelBody>
         </Panel>
       </div>

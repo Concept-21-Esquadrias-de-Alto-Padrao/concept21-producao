@@ -1,0 +1,470 @@
+{
+  "captured_at": "2026-10-21 10:29:59.5581+00",
+  "project_id": "loqmvdiegizwmpzjthhm",
+  "inventory": [
+    {
+      "row_count": 1,
+      "table_name": "extra_service_catalog",
+      "content_fingerprint": "89b37d7e106e9bb5ea2bd2f66347f11a"
+    },
+    {
+      "row_count": 0,
+      "table_name": "extra_service_requests",
+      "content_fingerprint": "d41d8cd98f00b204e9800998ecf8427e"
+    },
+    {
+      "row_count": 73,
+      "table_name": "freight_demands",
+      "content_fingerprint": "7c0e0608592851a803b9447168258781"
+    },
+    {
+      "row_count": 0,
+      "table_name": "freight_route_helpers",
+      "content_fingerprint": "d41d8cd98f00b204e9800998ecf8427e"
+    },
+    {
+      "row_count": 10,
+      "table_name": "freight_stop_prods",
+      "content_fingerprint": "636ce02cffe725db1dd612e40e3549f0"
+    },
+    {
+      "row_count": 10,
+      "table_name": "freight_stops",
+      "content_fingerprint": "7ebaef8b232d33fcb74885cf9fc7725b"
+    },
+    {
+      "row_count": 4,
+      "table_name": "freights",
+      "content_fingerprint": "2ff788f162a8ffee78d18494d9b2d08c"
+    },
+    {
+      "row_count": 1,
+      "table_name": "logistics_drivers",
+      "content_fingerprint": "4cce96d0737f16ef6cc0fab93b9faf12"
+    },
+    {
+      "row_count": 1,
+      "table_name": "logistics_recipients",
+      "content_fingerprint": "be34c71b684a3102136a23cc4edb503d"
+    },
+    {
+      "row_count": 1,
+      "table_name": "logistics_settings",
+      "content_fingerprint": "38a60c6c85358e54939de6fa0bf61b67"
+    },
+    {
+      "row_count": 7,
+      "table_name": "logistics_vehicles",
+      "content_fingerprint": "768a80e3dabea421b5c83bdfd944e431"
+    }
+  ],
+  "stages": [
+    {
+      "id": "a407fc9b-4138-42e7-a4c5-0820b1779a0a",
+      "icon": "truck",
+      "name": "Frete",
+      "active": true,
+      "company_id": "00000000-0000-0000-0000-000000000021",
+      "created_at": "2026-07-14T17:14:43.537115+00:00",
+      "created_by": null,
+      "sort_order": 10,
+      "updated_at": "2026-07-14T17:14:43.537115+00:00",
+      "description": "Vinculo da PROD com rota de entrega.",
+      "required_permission": "production.freights.manage_route"
+    }
+  ],
+  "triggers": [
+    {
+      "name": "production_prods_audit",
+      "enabled": "O",
+      "definition": "CREATE TRIGGER production_prods_audit AFTER INSERT OR DELETE OR UPDATE ON public.production_prods FOR EACH ROW EXECUTE FUNCTION audit_table_changes()"
+    },
+    {
+      "name": "production_prods_create_freight_demand",
+      "enabled": "O",
+      "definition": "CREATE TRIGGER production_prods_create_freight_demand AFTER INSERT ON public.production_prods FOR EACH ROW EXECUTE FUNCTION create_freight_demand_for_prod()"
+    },
+    {
+      "name": "production_prods_ensure_company",
+      "enabled": "O",
+      "definition": "CREATE TRIGGER production_prods_ensure_company BEFORE INSERT ON public.production_prods FOR EACH ROW EXECUTE FUNCTION ensure_company_id()"
+    },
+    {
+      "name": "production_prods_initialize_defaults",
+      "enabled": "O",
+      "definition": "CREATE TRIGGER production_prods_initialize_defaults AFTER INSERT ON public.production_prods FOR EACH ROW EXECUTE FUNCTION initialize_prod_defaults()"
+    },
+    {
+      "name": "production_prods_set_updated_at",
+      "enabled": "O",
+      "definition": "CREATE TRIGGER production_prods_set_updated_at BEFORE UPDATE ON public.production_prods FOR EACH ROW EXECUTE FUNCTION set_updated_at()"
+    }
+  ],
+  "policies": [
+    {
+      "cmd": "ALL",
+      "qual": "((company_id = current_company_id()) AND (is_master() OR has_permission('production.settings.manage_logistics'::text)))",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "extra_service_catalog",
+      "permissive": "PERMISSIVE",
+      "policyname": "extra_service_catalog_manage",
+      "schemaname": "public",
+      "with_check": "(company_id = current_company_id())"
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "((company_id = current_company_id()) AND active AND (is_master() OR has_permission('production.settings.manage_logistics'::text) OR has_permission('production.extra_services.view'::text) OR has_permission('production.extra_services.create'::text) OR has_permission('production.routes.view'::text) OR has_permission('production.routes.create'::text)))",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "extra_service_catalog",
+      "permissive": "PERMISSIVE",
+      "policyname": "extra_service_catalog_read_active",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "INSERT",
+      "qual": null,
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "extra_service_requests",
+      "permissive": "PERMISSIVE",
+      "policyname": "extra_services_insert",
+      "schemaname": "public",
+      "with_check": "((company_id = current_company_id()) AND (is_master() OR has_permission('production.extra_services.create'::text)))"
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "((company_id = current_company_id()) AND (is_master() OR has_permission('production.extra_services.view'::text)))",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "extra_service_requests",
+      "permissive": "PERMISSIVE",
+      "policyname": "extra_services_read",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "UPDATE",
+      "qual": "((company_id = current_company_id()) AND (is_master() OR has_permission('production.extra_services.edit'::text) OR has_permission('production.extra_services.cancel'::text) OR has_permission('production.routes.create'::text) OR has_permission('production.routes.edit'::text)))",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "extra_service_requests",
+      "permissive": "PERMISSIVE",
+      "policyname": "extra_services_update",
+      "schemaname": "public",
+      "with_check": "(company_id = current_company_id())"
+    },
+    {
+      "cmd": "ALL",
+      "qual": "((company_id = current_company_id()) AND (is_master() OR has_permission('production.freights.edit'::text) OR has_permission('production.routes.create'::text) OR has_permission('production.routes.edit'::text)))",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "freight_demands",
+      "permissive": "PERMISSIVE",
+      "policyname": "freight_demands_manage",
+      "schemaname": "public",
+      "with_check": "(company_id = current_company_id())"
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "((company_id = current_company_id()) AND (is_master() OR has_permission('production.freights.view'::text) OR has_permission('production.routes.view'::text) OR has_permission('production.routes.create'::text)))",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "freight_demands",
+      "permissive": "PERMISSIVE",
+      "policyname": "freight_demands_read",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "ALL",
+      "qual": "((company_id = current_company_id()) AND (is_master() OR has_permission('production.routes.create'::text) OR has_permission('production.routes.edit'::text)))",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "freight_route_helpers",
+      "permissive": "PERMISSIVE",
+      "policyname": "freight_route_helpers_manage",
+      "schemaname": "public",
+      "with_check": "(company_id = current_company_id())"
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "((company_id = current_company_id()) AND (is_master() OR has_permission('production.routes.view'::text) OR has_permission('production.routes.create'::text) OR has_permission('production.routes.edit'::text)))",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "freight_route_helpers",
+      "permissive": "PERMISSIVE",
+      "policyname": "freight_route_helpers_read",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "ALL",
+      "qual": "((company_id = current_company_id()) AND (is_master() OR has_permission('production.freights.manage_route'::text) OR has_permission('production.routes.create'::text) OR has_permission('production.routes.edit'::text)))",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "freight_stop_prods",
+      "permissive": "PERMISSIVE",
+      "policyname": "freight_stop_prods_manage",
+      "schemaname": "public",
+      "with_check": "(company_id = current_company_id())"
+    },
+    {
+      "cmd": "ALL",
+      "qual": "((company_id = current_company_id()) AND (is_master() OR has_permission('production.freights.manage_route'::text) OR has_permission('production.routes.create'::text) OR has_permission('production.routes.edit'::text)))",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "freight_stops",
+      "permissive": "PERMISSIVE",
+      "policyname": "freight_stops_manage",
+      "schemaname": "public",
+      "with_check": "(company_id = current_company_id())"
+    },
+    {
+      "cmd": "DELETE",
+      "qual": "((company_id = current_company_id()) AND is_master())",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "freights",
+      "permissive": "PERMISSIVE",
+      "policyname": "freights_delete",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "INSERT",
+      "qual": null,
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "freights",
+      "permissive": "PERMISSIVE",
+      "policyname": "freights_insert",
+      "schemaname": "public",
+      "with_check": "((company_id = current_company_id()) AND (is_master() OR has_permission('production.freights.create'::text) OR has_permission('production.routes.create'::text)))"
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "((company_id = current_company_id()) AND (is_master() OR has_permission('production.freights.view'::text) OR has_permission('production.routes.view'::text)))",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "freights",
+      "permissive": "PERMISSIVE",
+      "policyname": "freights_read",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "UPDATE",
+      "qual": "((company_id = current_company_id()) AND (is_master() OR has_permission('production.freights.edit'::text) OR has_permission('production.freights.manage_values'::text) OR has_permission('production.routes.edit'::text)))",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "freights",
+      "permissive": "PERMISSIVE",
+      "policyname": "freights_update",
+      "schemaname": "public",
+      "with_check": "(company_id = current_company_id())"
+    },
+    {
+      "cmd": "ALL",
+      "qual": "((company_id = current_company_id()) AND (is_master() OR has_permission('production.settings.manage_logistics'::text)))",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "logistics_drivers",
+      "permissive": "PERMISSIVE",
+      "policyname": "logistics_drivers_manage",
+      "schemaname": "public",
+      "with_check": "(company_id = current_company_id())"
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "((company_id = current_company_id()) AND active AND (is_master() OR has_permission('production.settings.manage_logistics'::text) OR has_permission('production.routes.view'::text) OR has_permission('production.routes.create'::text)))",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "logistics_drivers",
+      "permissive": "PERMISSIVE",
+      "policyname": "logistics_drivers_read_active",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "ALL",
+      "qual": "((company_id = current_company_id()) AND (is_master() OR has_permission('production.settings.manage_logistics'::text)))",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "logistics_recipients",
+      "permissive": "PERMISSIVE",
+      "policyname": "logistics_recipients_manage",
+      "schemaname": "public",
+      "with_check": "(company_id = current_company_id())"
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "((company_id = current_company_id()) AND active AND (is_master() OR has_permission('production.settings.manage_logistics'::text) OR has_permission('production.extra_services.view'::text) OR has_permission('production.extra_services.create'::text) OR has_permission('production.routes.view'::text) OR has_permission('production.routes.create'::text)))",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "logistics_recipients",
+      "permissive": "PERMISSIVE",
+      "policyname": "logistics_recipients_read_active",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "ALL",
+      "qual": "((company_id = current_company_id()) AND (is_master() OR has_permission('production.settings.manage_logistics'::text)))",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "logistics_settings",
+      "permissive": "PERMISSIVE",
+      "policyname": "logistics_settings_manage",
+      "schemaname": "public",
+      "with_check": "(company_id = current_company_id())"
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "((company_id = current_company_id()) AND (is_master() OR has_permission('production.settings.manage_logistics'::text) OR has_permission('production.routes.view'::text) OR has_permission('production.routes.create'::text) OR has_permission('production.routes.edit'::text)))",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "logistics_settings",
+      "permissive": "PERMISSIVE",
+      "policyname": "logistics_settings_read",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "ALL",
+      "qual": "((company_id = current_company_id()) AND (is_master() OR has_permission('production.settings.manage_logistics'::text)))",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "logistics_vehicles",
+      "permissive": "PERMISSIVE",
+      "policyname": "logistics_vehicles_manage",
+      "schemaname": "public",
+      "with_check": "(company_id = current_company_id())"
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "((company_id = current_company_id()) AND active AND (is_master() OR has_permission('production.settings.manage_logistics'::text) OR has_permission('production.routes.view'::text) OR has_permission('production.routes.create'::text)))",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "logistics_vehicles",
+      "permissive": "PERMISSIVE",
+      "policyname": "logistics_vehicles_read_active",
+      "schemaname": "public",
+      "with_check": null
+    }
+  ],
+  "table_security": [
+    {
+      "acl": "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres}",
+      "rls": true,
+      "name": "extra_service_catalog",
+      "owner": "postgres",
+      "force_rls": false
+    },
+    {
+      "acl": "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres}",
+      "rls": true,
+      "name": "extra_service_requests",
+      "owner": "postgres",
+      "force_rls": false
+    },
+    {
+      "acl": "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres}",
+      "rls": true,
+      "name": "freight_demands",
+      "owner": "postgres",
+      "force_rls": false
+    },
+    {
+      "acl": "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres}",
+      "rls": true,
+      "name": "freight_route_helpers",
+      "owner": "postgres",
+      "force_rls": false
+    },
+    {
+      "acl": "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres}",
+      "rls": true,
+      "name": "freight_stop_prods",
+      "owner": "postgres",
+      "force_rls": false
+    },
+    {
+      "acl": "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres}",
+      "rls": true,
+      "name": "freight_stops",
+      "owner": "postgres",
+      "force_rls": false
+    },
+    {
+      "acl": "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres}",
+      "rls": true,
+      "name": "freights",
+      "owner": "postgres",
+      "force_rls": false
+    },
+    {
+      "acl": "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres}",
+      "rls": true,
+      "name": "logistics_drivers",
+      "owner": "postgres",
+      "force_rls": false
+    },
+    {
+      "acl": "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres}",
+      "rls": true,
+      "name": "logistics_recipients",
+      "owner": "postgres",
+      "force_rls": false
+    },
+    {
+      "acl": "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres}",
+      "rls": true,
+      "name": "logistics_settings",
+      "owner": "postgres",
+      "force_rls": false
+    },
+    {
+      "acl": "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres}",
+      "rls": true,
+      "name": "logistics_vehicles",
+      "owner": "postgres",
+      "force_rls": false
+    }
+  ],
+  "functions": [
+    {
+      "name": "create_freight_demand_for_prod",
+      "definition": "CREATE OR REPLACE FUNCTION public.create_freight_demand_for_prod()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\r\ndeclare\r\n  target_contract public.production_contracts%rowtype;\r\nbegin\r\n  select *\r\n    into target_contract\r\n  from public.production_contracts\r\n  where id = new.contract_id\r\n    and company_id = new.company_id;\r\n\r\n  if target_contract.id is null then\r\n    return new;\r\n  end if;\r\n\r\n  insert into public.freight_demands (\r\n    company_id,\r\n    prod_id,\r\n    contract_id,\r\n    client_id,\r\n    planned_date,\r\n    status,\r\n    created_by\r\n  )\r\n  values (\r\n    new.company_id,\r\n    new.id,\r\n    target_contract.id,\r\n    target_contract.client_id,\r\n    null,\r\n    'previsto',\r\n    new.created_by\r\n  )\r\n  on conflict (prod_id) do nothing;\r\n\r\n  return new;\r\nend;\r\n$function$\n"
+    },
+    {
+      "name": "initialize_prod_defaults",
+      "definition": "CREATE OR REPLACE FUNCTION public.initialize_prod_defaults()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public'\nAS $function$\r\nbegin\r\n  insert into public.production_prod_stages (company_id, prod_id, stage_id, planned_date)\r\n  select new.company_id, new.id, s.id, new.planned_end_date\r\n  from public.production_stages s\r\n  where s.company_id = new.company_id\r\n    and s.active\r\n  on conflict do nothing;\r\n\r\n  insert into public.production_prod_materials (company_id, prod_id, material_group)\r\n  select new.company_id, new.id, mg.key\r\n  from public.production_material_groups mg\r\n  where mg.company_id = new.company_id\r\n    and mg.active\r\n  on conflict do nothing;\r\n\r\n  insert into public.production_prod_document_checks (company_id, prod_id, checklist_item_id)\r\n  select new.company_id, new.id, item.id\r\n  from public.production_document_checklist_items item\r\n  where item.company_id = new.company_id\r\n    and item.active\r\n  on conflict do nothing;\r\n\r\n  return new;\r\nend;\r\n$function$\n"
+    }
+  ]
+}

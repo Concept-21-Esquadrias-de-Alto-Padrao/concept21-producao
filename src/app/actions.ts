@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { isTransportStage, TRANSPORT_ENABLED, TRANSPORT_DISABLED_MESSAGE } from "@/lib/transport-module";
 import { calculateOwnVehicleRouteCosts } from "@/lib/production";
 import { LOAD_CONTROL_ITEMS } from "@/lib/expedition";
 import { isValidOperatorPin, isValidOperatorRegistration } from "@/lib/operator-credentials";
@@ -184,7 +185,8 @@ function revalidateProds(prodId?: string) {
   if (prodId) revalidatePath(`/prods/${prodId}`);
   revalidatePath("/");
   revalidatePath("/pointing");
-  revalidateLogistics();
+  revalidatePath("/reports");
+  if (TRANSPORT_ENABLED) revalidateLogistics();
 }
 
 async function insertRow(table: string, values: Record<string, unknown>, path: string) {
@@ -1342,6 +1344,33 @@ export async function updateContractAction(_: ActionState, formData: FormData) {
   return { ok: true, message: "Contrato atualizado com sucesso." };
 }
 
+async function validateProdTransportSelection(
+  context: Extract<ActionContext, { ok: true }>,
+  values: { current_stage_id?: string | null; status: string },
+  prodId?: string,
+): Promise<ActionState | null> {
+  if (TRANSPORT_ENABLED) return null;
+  let previous: { current_stage_id: string | null; status: string } | null = null;
+  if (prodId) {
+    const { data, error } = await context.supabase.from("production_prods")
+      .select("current_stage_id, status").eq("company_id", context.companyId).eq("id", prodId).maybeSingle();
+    if (error) return { ok: false, message: toUserFriendlyErrorMessage(error) };
+    if (!data) return { ok: false, message: "PROD não encontrada." };
+    previous = data;
+  }
+  if (values.status === "aguardando_frete" && previous?.status !== values.status) {
+    return { ok: false, message: TRANSPORT_DISABLED_MESSAGE };
+  }
+  if (values.current_stage_id && values.current_stage_id !== previous?.current_stage_id) {
+    const { data: stage, error } = await context.supabase.from("production_stages")
+      .select("name, required_permission").eq("company_id", context.companyId)
+      .eq("id", values.current_stage_id).maybeSingle();
+    if (error) return { ok: false, message: toUserFriendlyErrorMessage(error) };
+    if (!stage || isTransportStage(stage)) return { ok: false, message: TRANSPORT_DISABLED_MESSAGE };
+  }
+  return null;
+}
+
 export async function createProdAction(_: ActionState, formData: FormData) {
   const context = await getActionContext();
   if (!context.ok) return context.state;
@@ -1358,6 +1387,9 @@ export async function createProdAction(_: ActionState, formData: FormData) {
   if (!parsed.success) {
     return { ok: false, message: parsed.error.issues[0]?.message ?? "Dados inválidos" };
   }
+
+  const transportError = await validateProdTransportSelection(context, parsed.data);
+  if (transportError) return transportError;
 
   const values = withAutomaticProdStart(parsed.data);
   const { error } = await context.supabase.from("production_prods").insert({
@@ -1390,6 +1422,9 @@ export async function updateProdAction(_: ActionState, formData: FormData) {
   }
 
   const { id, ...parsedValues } = parsed.data;
+  const transportError = await validateProdTransportSelection(context, parsedValues, id);
+  if (transportError) return transportError;
+
   const values = withAutomaticProdStart(parsedValues);
   const { error } = await context.supabase
     .from("production_prods")
@@ -1399,7 +1434,7 @@ export async function updateProdAction(_: ActionState, formData: FormData) {
 
   if (error) return { ok: false, message: toUserFriendlyErrorMessage(error) };
 
-  if (values.contract_id) {
+  if (TRANSPORT_ENABLED && values.contract_id) {
     const { data: contract, error: contractError } = await context.supabase
       .from("production_contracts")
       .select("id, client_id")
@@ -3789,12 +3824,15 @@ export async function updateProdStageAction(_: ActionState, formData: FormData) 
 
     const { data: stage, error: stageError } = await context.supabase
       .from("production_stages")
-      .select("id, required_permission")
+      .select("id, name, required_permission")
       .eq("company_id", context.companyId)
       .eq("id", prodStage.stage_id)
       .maybeSingle();
 
     if (stageError) throw stageError;
+    if (stage && !TRANSPORT_ENABLED && isTransportStage(stage)) {
+      return { ok: false, message: TRANSPORT_DISABLED_MESSAGE };
+    }
 
     const canUpdateStage =
       context.isMaster ||
@@ -4044,6 +4082,7 @@ export async function updateProdShippingAction(_: ActionState, formData: FormDat
 }
 
 export async function planFreightDemandAction(_: ActionState, formData: FormData) {
+  if (!TRANSPORT_ENABLED) return { ok: false, message: TRANSPORT_DISABLED_MESSAGE };
   const context = await getActionContext();
   if (!context.ok) return context.state;
 
@@ -4091,6 +4130,7 @@ export async function planFreightDemandAction(_: ActionState, formData: FormData
 }
 
 export async function createExtraServiceAction(_: ActionState, formData: FormData) {
+  if (!TRANSPORT_ENABLED) return { ok: false, message: TRANSPORT_DISABLED_MESSAGE };
   const context = await getActionContext();
   if (!context.ok) return context.state;
 
@@ -4142,6 +4182,7 @@ export async function createExtraServiceAction(_: ActionState, formData: FormDat
 }
 
 export async function planExtraServiceAction(_: ActionState, formData: FormData) {
+  if (!TRANSPORT_ENABLED) return { ok: false, message: TRANSPORT_DISABLED_MESSAGE };
   const context = await getActionContext();
   if (!context.ok) return context.state;
 
@@ -4164,6 +4205,7 @@ export async function planExtraServiceAction(_: ActionState, formData: FormData)
 }
 
 export async function createFreightAction(_: ActionState, formData: FormData) {
+  if (!TRANSPORT_ENABLED) return { ok: false, message: TRANSPORT_DISABLED_MESSAGE };
   const context = await getActionContext();
   if (!context.ok) return context.state;
 
@@ -4242,6 +4284,7 @@ export async function createFreightAction(_: ActionState, formData: FormData) {
 }
 
 export async function updateFreightAction(_: ActionState, formData: FormData) {
+  if (!TRANSPORT_ENABLED) return { ok: false, message: TRANSPORT_DISABLED_MESSAGE };
   const context = await getActionContext();
   if (!context.ok) return context.state;
 
@@ -4427,6 +4470,7 @@ export async function updateFreightAction(_: ActionState, formData: FormData) {
 }
 
 export async function deleteFreightAction(_: ActionState, formData: FormData) {
+  if (!TRANSPORT_ENABLED) return { ok: false, message: TRANSPORT_DISABLED_MESSAGE };
   const context = await getActionContext();
   if (!context.ok) return context.state;
 

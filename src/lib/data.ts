@@ -1,5 +1,6 @@
 import { unstable_noStore as noStore } from "next/cache";
 import { demoSnapshot } from "./demo-data";
+import { isSnapshotKeyEnabled, isolateTransportSnapshot } from "./transport-module";
 import type {
   Department,
   ProductionSnapshot,
@@ -424,7 +425,7 @@ function addSnapshotQuery(
   include: SnapshotInclude,
   query: SnapshotQuery,
 ) {
-  if (include[query.key]) {
+  if (include[query.key] && isSnapshotKeyEnabled(query.key)) {
     queries.push(query);
   }
 }
@@ -435,7 +436,7 @@ async function loadProductionSnapshot(
 ): Promise<ProductionSnapshot> {
   noStore();
 
-  if (!hasSupabaseEnv()) return demoSnapshot;
+  if (!hasSupabaseEnv()) return isolateTransportSnapshot(demoSnapshot);
 
   try {
     const supabase = await createSupabaseServerClient();
@@ -959,7 +960,7 @@ async function loadProductionSnapshot(
       queries[index].apply(snapshot, result.data ?? []);
     });
 
-    return snapshot;
+    return isolateTransportSnapshot(snapshot);
   } catch (error) {
     console.error("Falha ao carregar dados protegidos do Supabase", error);
     if (filters.throwOnError) throw error;

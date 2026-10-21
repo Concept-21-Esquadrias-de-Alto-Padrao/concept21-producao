@@ -1,5 +1,7 @@
 "use client";
 
+import { isTransportPermission, TRANSPORT_ENABLED } from "@/lib/transport-module";
+
 import { FloatingMessage } from "@/components/floating-feedback";
 
 import {
@@ -240,6 +242,7 @@ export function SecuritySettings() {
 
   const groupedPermissions = useMemo(() => {
     return (data?.permissions ?? []).reduce<Record<string, Permission[]>>((groups, permission) => {
+      if (!TRANSPORT_ENABLED && isTransportPermission(permission.key)) return groups;
       const group = permissionGroup(permission.key);
       groups[group] = [...(groups[group] ?? []), permission];
       return groups;

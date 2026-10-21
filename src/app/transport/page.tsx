@@ -1,6 +1,7 @@
+import { TRANSPORT_ENABLED } from "@/lib/transport-module";
 import Link from "next/link";
 import { BarChart3, ClipboardList } from "lucide-react";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { ExtraServicesBoard } from "@/components/extra-services-board";
 import { FreightsBoard } from "@/components/freights-board";
 import { PageHeader } from "@/components/page-header";
@@ -517,6 +518,7 @@ export default async function TransportPage({
 }: {
   searchParams: Promise<TransportParams>;
 }) {
+  if (!TRANSPORT_ENABLED) notFound();
   const params = await searchParams;
   const activeTab = normalizeTab(params.tab);
   const access = await getCurrentPermissionFlags([
