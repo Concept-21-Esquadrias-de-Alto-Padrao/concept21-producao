@@ -139,6 +139,19 @@ returns integer language sql stable security definer set search_path='' as $$
  )::integer;
 $$;
 
+-- Preparing the load is distinct from departure, but its evidence must remain
+-- valid for a departure to count toward completion.
+create function production_lifecycle_private.piece_loaded(p_piece uuid)
+returns boolean language sql stable security definer set search_path='' as $$
+ select exists (
+  select 1 from public.production_prod_pieces p
+  join public.production_prod_piece_stages ps on ps.piece_id=p.id and ps.prod_id=p.prod_id and ps.company_id=p.company_id
+  join public.production_stages s on s.id=ps.stage_id and s.company_id=p.company_id
+  where p.id=p_piece and s.sort_order=9 and ps.status='concluida'
+   and ps.completed_at is not null and ps.load_volume_count>0
+ );
+$$;
+
 create function production_lifecycle_private.refresh(p_prod uuid)
 returns void language plpgsql security definer set search_path='' as $$
 declare p record; old_state public.production_prod_lifecycle; n integer; m integer; d integer; c integer; a integer; b integer; next_state text; manufacture text; manufactured_time timestamptz;
@@ -151,7 +164,7 @@ begin
  select coalesce(sum(x.quantity),0),
    coalesce(sum(x.quantity) filter(where q.cancelled_at is null and production_lifecycle_private.piece_manufactured(x.id)),0),
    coalesce(sum(x.quantity) filter(where q.cancelled_at is not null),0),
-   coalesce(sum(x.quantity) filter(where q.cancelled_at is null and exists(select 1 from public.production_piece_dispatches e where e.piece_id=x.id and e.voided_at is null and e.quantity=x.quantity)),0)
+   coalesce(sum(x.quantity) filter(where q.cancelled_at is null and production_lifecycle_private.piece_loaded(x.id) and exists(select 1 from public.production_piece_dispatches e where e.piece_id=x.id and e.voided_at is null and e.quantity=x.quantity)),0)
  into n,m,c,d from public.production_prod_pieces x left join public.production_piece_dispositions q on q.piece_id=x.id where x.prod_id=p.id;
  select count(*) into a from public.production_expedition_archives ar join public.production_prod_piece_stages ps on ps.id=ar.piece_stage_id where ps.prod_id=p.id and ar.restored_at is null;
  b := production_lifecycle_private.blockers(p.id);
@@ -206,7 +219,7 @@ begin
  if prod is not null and contract is null then select p.contract_id into contract from public.production_prods p where p.id=prod and p.company_id=company; end if;
  if tg_table_name='production_expedition_archives' and not exists(select 1 from public.production_prod_piece_stages ps where ps.id=(r->>'piece_stage_id')::uuid and ps.company_id=company) then raise exception 'Etapa fora da empresa.'; end if;
  if not exists(select 1 from public.production_contracts c where c.id=contract and c.company_id=company) and not (tg_table_name='production_contracts' and tg_op='INSERT') then raise exception 'Vínculo de empresa/contrato inválido.'; end if;
- if tg_op='UPDATE' and (r->>'company_id' is distinct from prior->>'company_id' or r->>'prod_id' is distinct from prior->>'prod_id' or r->>'contract_id' is distinct from prior->>'contract_id' or r->>'piece_id' is distinct from prior->>'piece_id' or r->>'piece_stage_id' is distinct from prior->>'piece_stage_id') then raise exception 'Não é permitido transferir registros entre escopos. Registre a destinação formal.'; end if;
+ if tg_op='UPDATE' and (r->>'company_id' is distinct from prior->>'company_id' or r->>'prod_id' is distinct from prior->>'prod_id' or r->>'contract_id' is distinct from prior->>'contract_id' or r->>'piece_id' is distinct from prior->>'piece_id' or r->>'piece_stage_id' is distinct from prior->>'piece_stage_id' or r->>'stage_id' is distinct from prior->>'stage_id') then raise exception 'Não é permitido transferir registros entre escopos. Registre a destinação formal.'; end if;
  if tg_op='DELETE' and tg_table_name in ('production_contracts','production_prods','production_prod_pieces','production_prod_piece_stages') then raise exception 'Preserve o escopo e o histórico: use cancelamento ou arquivamento.'; end if;
  if exists(select 1 from public.production_contract_lifecycle l where l.contract_id=contract and l.archived_at is not null) or exists(select 1 from public.production_prod_lifecycle l where l.prod_id=prod and l.archived_at is not null) then raise exception 'Registro arquivado. Restaure antes de alterar.'; end if;
  if tg_table_name='production_prods' then
@@ -240,7 +253,12 @@ begin
  elsif tg_table_name='production_prods' and tg_op='INSERT' then
   perform production_lifecycle_private.invalidate_scope(contract,'Nova PROD cadastrada');
  elsif tg_table_name='production_prod_piece_stages' then
-  invalidate:=tg_op='DELETE' or (r->>'status' is distinct from prior->>'status' and r->>'status' not in ('concluida','nao_aplicavel'));
+  invalidate:=tg_op='DELETE'
+   or (r->>'status' is distinct from prior->>'status' and r->>'status' not in ('concluida','nao_aplicavel'))
+   or exists(select 1 from public.production_stages s where s.id=(r->>'stage_id')::uuid and (
+    (s.sort_order between 5 and 8 and (r->>'completed_at' is null or r->>'status' not in ('concluida','nao_aplicavel')))
+    or (s.sort_order=9 and not production_lifecycle_private.piece_loaded(piece))
+   ));
  elsif tg_table_name='production_piece_reworks' then invalidate:=r->>'status' not in ('concluido','cancelado');
  elsif tg_table_name='production_expedition_archives' then invalidate:=r->>'restored_at' is null;
  end if;
@@ -324,7 +342,7 @@ begin
     if not production_lifecycle_private.piece_manufactured(item.id) or production_lifecycle_private.blockers(prod)>0
       or exists(select 1 from public.production_piece_dispositions q where q.piece_id=item.id and q.cancelled_at is not null)
       or exists(select 1 from public.production_expedition_archives a join public.production_prod_piece_stages ps on ps.id=a.piece_stage_id where ps.piece_id=item.id and a.restored_at is null)
-      or not exists(select 1 from public.production_prod_piece_stages ps join public.production_stages s on s.id=ps.stage_id where ps.piece_id=item.id and s.sort_order=9 and ps.status='concluida' and ps.completed_at is not null and ps.load_volume_count>0)
+      or not production_lifecycle_private.piece_loaded(item.id)
     then raise exception 'Peça % sem fabricação/carga concluída ou com impedimento.',item.piece_code; end if;
     if exists(select 1 from public.production_piece_dispatches e where e.piece_id=item.id and e.voided_at is null) then raise exception 'Saída já registrada para a peça %.',item.piece_code; end if;
     insert into public.production_piece_dispatches(company_id,prod_id,piece_id,actor_id,romaneio,quantity,piece_snapshot) values(company,prod,item.id,actor.id,trim(p_reference),item.quantity,to_jsonb(item));

@@ -6,6 +6,16 @@ João validou a implementação com “Vamos executar”, após a definição de
 
 A implementação contém o novo fluxo e sua migration. Homologação completa com navegador, sessão Supabase real de teste e PostgREST continua pendente. O download do Chromium falhou no ambiente de trabalho. A consulta atual à Vercel retornou 403 para `concept-aluminium`; o deployment registrado no dossiê não foi revalidado nesta rodada. Nada disso será descrito como homologação ou publicação concluída.
 
+### Retomada da revisão — 21/10/2026
+
+Base remota revalidada em `d2070ff`; a revisão anterior continua preservada no commit remoto `962042f` (mesma árvore do local `f18a3c0`). Foi reproduzida uma falha adicional: remover a data da Expedição sem mudar o status mantinha a PROD concluída. Esta revisão invalida a saída quando se perde a comprovação de fabricação/carga, inclusive data ausente, volumes zerados ou Expedição não aplicável. Repor os campos exige nova confirmação de saída; o evento anterior permanece. O vínculo de um apontamento com sua etapa também não pode ser trocado.
+
+Os 46 cenários SQL passaram (41 anteriores e 5 regressões novas). O primeiro cenário novo falhou na versão anterior e passou após a correção. A migration continua **não aplicada** por esta entrega; o ajuste é sobre o arquivo ainda não implantado. Nenhuma nova suíte visual, sessão real de Auth ou concorrência nativa foi concluída.
+
+Foi localizado, somente em leitura, o projeto `Producao - Concept21 HOMOLOGACAO` (`wtwypcjpnvedpbaluzzr`). Ele tem 51 tabelas públicas, mas não tem `production_expedition_archives` nem as tabelas de lifecycle; o trigger de criação de fretes está ativo e não existem policies `transport_module_isolated`. Portanto, ainda não reproduz a base desta alteração. Não confundir esse ambiente com Produção nem presumir que esteja vazio ou disponível para substituição. Nenhum dado, usuário, acesso ou schema desse projeto foi modificado nesta retomada.
+
+Preflight somente de leitura: `scripts/check-production-lifecycle-prerequisites.sql`. Para a homologação, reconciliar o schema de arquivamento (patch inicial e extensões por etapa), o isolamento dos fretes e os triggers/policies da origem antes desta migration; preservar o endurecimento de acesso já presente no destino. Não executar patches antigos de arquivamento em lote nem copiar registros reais. A instalação do navegador foi tentada novamente e falhou por arquivo de download inválido. O conector Vercel continua retornando 403 no escopo empresarial e a operação de autorização indicada no erro não está exposta entre as ferramentas disponíveis.
+
 ## Comportamento
 
 - **PRODs:** abas Em andamento, Concluídos e Cancelados; pesquisa por cliente/obra, contrato, PROD, etapa, status e período de conclusão em Brasília. Conclusão da PROD independe de encerramento do contrato.
@@ -47,7 +57,7 @@ npm run test:lifecycle-http # ambiente demo sem Supabase, após build
 
 `test:lifecycle-db` usa PostgreSQL WASM/PGlite efêmero e dados fictícios. Reutiliza definições de tabelas das migrations e 15 triggers/9 funções instaladas na origem, consultadas somente em leitura e salvas em `scripts/fixtures/production-source-triggers.sql`. Auth e permissões de sessão usam stubs no ensaio, declarados no script. Não é ensaio de restauração de backup nem teste completo do aplicativo/Supabase Auth/PostgREST.
 
-Suite JavaScript: 51 testes (35 anteriores + 16 de histórico/indicadores e da fronteira de servidor). Ensaio SQL: 41 cenários aprovados, com histórico legado preservado, exclusão bloqueada, falta de etapa, arquivos, saída parcial, saída duplicada, cancelamento, retorno, novo escopo, retrabalho, atomicidade de lote, isolamento por empresa/RLS e privilégio insuficiente. A suíte também verifica que registrar retrabalho já encerrado não inventa um retorno, além de bloqueio de importação/sessão sobre arquivados, identidade das etapas, escopo sem liberação e imutabilidade dos eventos.
+Suite JavaScript: 51 testes (35 anteriores + 16 de histórico/indicadores e da fronteira de servidor). Ensaio SQL: 46 cenários aprovados, com histórico legado preservado, exclusão bloqueada, falta de etapa, arquivos, saída parcial, saída duplicada, cancelamento, retorno, novo escopo, retrabalho, atomicidade de lote, isolamento por empresa/RLS e privilégio insuficiente. A suíte também verifica que registrar retrabalho já encerrado não inventa um retorno, além de bloqueio de importação/sessão sobre arquivados, identidade das etapas, escopo sem liberação e imutabilidade dos eventos.
 
 Lint, build e respostas HTTP locais aprovados. O ensaio HTTP confere 8 páginas/payloads de servidor (incluindo RSC) e 5 endpoints antigos de fretes com status 410. Ele não hidrata o guard de sessão cliente nem comprova a interação visual.
 

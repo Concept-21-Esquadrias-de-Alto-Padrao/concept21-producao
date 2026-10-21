@@ -107,6 +107,24 @@ try {
  await command('dispatch',p2,[x2]);
  await db.exec(`insert into production_piece_reworks(company_id,prod_id,piece_id,status) values('${company}','${p2}','${x2}','concluido')`);
  assert.equal((await one(`select state from production_prod_lifecycle where prod_id='${p2}'`)).state,'concluida');ok('Recording terminal rework does not invent a return');
+ // Losing execution evidence must invalidate an existing departure even when the
+ // stage's status text stays terminal. Restoring evidence is not a new departure.
+ for (const [label,stage,mutation] of [
+  ['Expedition completion date removed',9,'completed_at=null'],
+  ['Load volumes cleared',9,'load_volume_count=0'],
+  ['Expedition changed to not applicable',9,"status='nao_aplicavel'"],
+  ['Manufacturing completion date removed',5,'completed_at=null'],
+ ]) {
+  await db.exec(`update production_prod_piece_stages set ${mutation} where piece_id='${x2}' and stage_id='${id(100+stage)}'`);
+  assert.equal((await one(`select state from production_prod_lifecycle where prod_id='${p2}'`)).state,'em_andamento',label);
+  assert.equal((await one(`select count(*)::int n from production_piece_dispatches where piece_id='${x2}' and voided_at is null`)).n,0,label);
+  await finish(x2);
+  assert.equal((await one(`select state from production_prod_lifecycle where prod_id='${p2}'`)).state,'em_andamento','Restoring evidence must not recreate departure');
+  await command('dispatch',p2,[x2]);
+  ok(label+' reopens and requires a new physical dispatch');
+ }
+ await db.exec(`insert into production_stages(id,company_id,name,sort_order) values('${id(111)}','${company}','Outra etapa fictícia',11)`);
+ await reject(`update production_prod_piece_stages set stage_id='${id(111)}' where piece_id='${x2}' and stage_id='${id(105)}'`,/escopos/);ok('A recorded piece stage cannot be reassigned to another stage');
  await db.exec(`update production_prod_pieces set quantity=4 where id='${x2}'`);
  assert.equal((await one(`select state from production_prod_lifecycle where prod_id='${p2}'`)).state,'em_andamento');ok('Quantity change invalidates old departure');
  const [p3,x3]=await makeProd(40);
