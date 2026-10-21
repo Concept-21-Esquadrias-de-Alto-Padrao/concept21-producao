@@ -3,16 +3,15 @@
 import { RotateCcw } from "lucide-react";
 
 export default function Error({
-  error,
   reset,
 }: {
   error: Error & { digest?: string };
   reset: () => void;
 }) {
   return (
-    <div className="rounded-md border border-red-200 bg-red-50 p-5 text-red-900">
+    <div role="alert" className="rounded-md border border-red-200 bg-red-50 p-5 text-red-900">
       <h1 className="text-lg font-semibold">Não foi possível carregar esta tela</h1>
-      <p className="mt-2 text-sm">{error.message}</p>
+      <p className="mt-2 text-sm">Tente novamente. Se o problema persistir, peça ao administrador para verificar a conexão e a atualização do banco.</p>
       <button
         type="button"
         onClick={reset}

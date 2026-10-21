@@ -458,7 +458,7 @@ function ShippingForm({
         </p>
         <ReadOnlyLine label="Entrada" value={formatDateTime(shipping.entered_at)} />
         <ReadOnlyLine label="Saída prevista" value={formatDateTime(shipping.planned_departure)} />
-        <ReadOnlyLine label="Saída real" value={formatDateTime(shipping.actual_departure)} />
+        <ReadOnlyLine label="Saída registrada no controle antigo" value={formatDateTime(shipping.actual_departure)} />
         <ReadOnlyLine label="Status" value={shipping.status} />
       </article>
     );
@@ -502,9 +502,9 @@ function ShippingForm({
             defaultValue={datetimeInputValue(shipping?.planned_departure)}
           />
         </Field>
-        <Field label="Saída real">
+        <Field label="Saída registrada no controle antigo">
           <input
-            name="actual_departure"
+            readOnly
             type="datetime-local"
             className={inputClass}
             defaultValue={datetimeInputValue(shipping?.actual_departure)}

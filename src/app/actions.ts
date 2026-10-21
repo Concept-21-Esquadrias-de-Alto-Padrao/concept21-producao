@@ -1329,7 +1329,8 @@ export async function updateContractAction(_: ActionState, formData: FormData) {
     return { ok: false, message: parsed.error.issues[0]?.message ?? "Dados inválidos" };
   }
 
-  const { id, ...values } = parsed.data;
+  const { id, status: ignoredStatus, active: ignoredActive, ...values } = parsed.data;
+  void ignoredStatus; void ignoredActive;
   const { error } = await context.supabase
     .from("production_contracts")
     .update(values)
@@ -1391,6 +1392,7 @@ export async function createProdAction(_: ActionState, formData: FormData) {
   const transportError = await validateProdTransportSelection(context, parsed.data);
   if (transportError) return transportError;
 
+  if (parsed.data.actual_end_date) return { ok: false, message: "A conclusão oficial é registrada automaticamente." };
   const values = withAutomaticProdStart(parsed.data);
   const { error } = await context.supabase.from("production_prods").insert({
     ...values,
@@ -1425,7 +1427,9 @@ export async function updateProdAction(_: ActionState, formData: FormData) {
   const transportError = await validateProdTransportSelection(context, parsedValues, id);
   if (transportError) return transportError;
 
-  const values = withAutomaticProdStart(parsedValues);
+  const { actual_end_date: ignoredCompletionDate, ...editableValues } = parsedValues;
+  void ignoredCompletionDate;
+  const values = withAutomaticProdStart(editableValues);
   const { error } = await context.supabase
     .from("production_prods")
     .update(values)
@@ -3106,7 +3110,7 @@ export async function completeExpeditionLoadControlAction(_: ActionState, formDa
     }
 
     revalidatePointing(prodIds);
-    return { ok: true, message: "Expedição finalizada sem contagem de tempo." };
+    return { ok: true, message: "Carga preparada. Registre a saída física na PROD quando as peças saírem." };
   } catch (error) {
     return { ok: false, message: toUserFriendlyErrorMessage(error) };
   }
@@ -4067,9 +4071,11 @@ export async function updateProdShippingAction(_: ActionState, formData: FormDat
     return { ok: false, message: parsed.error.issues[0]?.message ?? "Dados inválidos" };
   }
 
+  const { actual_departure: legacyDeparture, ...shippingValues } = parsed.data;
+  if (legacyDeparture) return { ok: false, message: "Registre a saída física por peças na seção Conclusão na Produção." };
   const { error } = await context.supabase.from("production_shipping_records").upsert(
     {
-      ...parsed.data,
+      ...shippingValues,
       company_id: context.companyId,
       responsible_profile_id: context.profileId,
     },

@@ -12,7 +12,6 @@ import {
   Pencil,
   RotateCcw,
   Save,
-  Trash2,
   UploadCloud,
   X,
 } from "lucide-react";
@@ -20,7 +19,6 @@ import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useMemo, useState } from "react";
 import {
   adjustProductionPieceStageTimeAction,
-  deleteProdPieceAction,
   importProdPiecesAction,
   registerPieceReworkAction,
   releasePieceReworkAction,
@@ -190,26 +188,6 @@ function datetimeLocalValue(value: string | number | Date | null | undefined) {
 
 function ActionMessage({ state }: { state: ActionState }) {
   return <ActionFeedback state={state} />;
-}
-
-function DeletePieceButton({ prodId, pieceId }: { prodId: string; pieceId: string }) {
-  const [state, formAction, pending] = useActionState(deleteProdPieceAction, initialState);
-
-  return (
-    <form action={formAction} className="flex items-center gap-2">
-      <input type="hidden" name="prod_id" value={prodId} />
-      <input type="hidden" name="piece_id" value={pieceId} />
-      <button
-        type="submit"
-        disabled={pending}
-        className="inline-flex size-9 items-center justify-center rounded-md border border-red-200 bg-white text-red-700 transition hover:bg-red-50 disabled:opacity-60"
-        title="Excluir peça"
-      >
-        {pending ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
-      </button>
-      <ActionMessage state={state} />
-    </form>
-  );
 }
 
 function ReleaseProdPiecesButton({ prodId, count }: { prodId: string; count: number }) {
@@ -1861,7 +1839,7 @@ export function ProdPiecesPanel({
                         <RotateCcw className="size-4" />
                       </button>
                     ) : null}
-                    {canManage ? <DeletePieceButton prodId={prodId} pieceId={piece.id} /> : null}
+                    {piece.disposition?.cancelled_at ? <span className="text-xs font-semibold text-amber-800">Cancelada formalmente</span> : null}
                   </div>
                 </article>
               );

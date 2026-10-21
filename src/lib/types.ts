@@ -267,6 +267,7 @@ export type Client = {
 };
 
 export type ProductionContract = {
+  lifecycle?: import("./lifecycle").ContractLifecycle | null;
   id: string;
   contract_number: string;
   client_id: string;
@@ -298,6 +299,8 @@ export type ProductionStage = {
 };
 
 export type ProductionProd = {
+  lifecycle?: import("./lifecycle").ProdLifecycle | null;
+  legacy_status?: string;
   id: string;
   contract_id: string;
   prod_number: number;
@@ -412,6 +415,7 @@ export type ProductionPieceImport = {
 };
 
 export type ProductionPiece = {
+  disposition?: import("./lifecycle").PieceDisposition | null;
   id: string;
   company_id: string;
   prod_id: string;

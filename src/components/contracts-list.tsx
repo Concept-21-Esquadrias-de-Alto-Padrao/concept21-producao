@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+import { LifecycleBadge } from "./lifecycle-panel";
 import { ActionFeedback } from "@/components/floating-feedback";
 
 import { Eye, Loader2, Pencil, Save, X } from "lucide-react";
@@ -243,9 +245,8 @@ export function ContractsList({ contracts, clients, prods, canEdit }: ContractsL
               <>
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                   <div>
-                    <p className="font-semibold text-charcoal">
-                      {client} · {contract.contract_number}
-                    </p>
+                    <Link className="font-semibold text-charcoal underline" href={`/contracts/${contract.id}`}>{client} · {contract.contract_number}</Link>
+                    <div className="mt-2"><LifecycleBadge item={contract} /></div>
                     <p className="text-sm text-muted-foreground">{contract.work_name}</p>
                   </div>
                   <div className="flex items-start gap-2">

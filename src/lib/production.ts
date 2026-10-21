@@ -1,3 +1,4 @@
+import { isOfficiallyCompleted, isOperationalProd, lifecycleView } from "./lifecycle";
 import { TRANSPORT_ENABLED } from "./transport-module";
 import {
   freightStatusLabels,
@@ -269,7 +270,7 @@ export function groupProdNumbersForStop(
 
 export function calculateDashboardMetrics(snapshot: ProductionSnapshot) {
   const activeProds = snapshot.prods.filter(
-    (prod) => !["concluida", "cancelada"].includes(prod.status),
+    (prod) => isOperationalProd(prod, snapshot.contracts),
   );
   const prodsWithMaterialIssues = new Set(
     snapshot.prodMaterials
@@ -479,7 +480,7 @@ export function getMaterialSituation(snapshot: ProductionSnapshot) {
 
 export function getForecastVsDone(snapshot: ProductionSnapshot) {
   const buckets = new Map<string, { label: string; previstas: number; concluidas: number }>();
-  for (const prod of snapshot.prods) {
+  for (const prod of snapshot.prods.filter(p => !["arquivados", "cancelados"].includes(lifecycleView(p)))) {
     const planned = prod.planned_end_date?.slice(0, 7) ?? "sem-data";
     const current = buckets.get(planned) ?? {
       label: planned === "sem-data" ? "Sem data" : planned,
@@ -487,7 +488,7 @@ export function getForecastVsDone(snapshot: ProductionSnapshot) {
       concluidas: 0,
     };
     current.previstas += 1;
-    if (prod.actual_end_date) current.concluidas += 1;
+    if (isOfficiallyCompleted(prod)) current.concluidas += 1;
     buckets.set(planned, current);
   }
   return [...buckets.values()].sort((a, b) => a.label.localeCompare(b.label));
@@ -495,6 +496,7 @@ export function getForecastVsDone(snapshot: ProductionSnapshot) {
 
 export function getAttentionItems(snapshot: ProductionSnapshot) {
   return getProdContexts(snapshot)
+    .filter(context => isOperationalProd(context.prod, snapshot.contracts))
     .flatMap((context) => {
       const materials = snapshot.prodMaterials.filter(
         (material) => material.prod_id === context.prod.id,

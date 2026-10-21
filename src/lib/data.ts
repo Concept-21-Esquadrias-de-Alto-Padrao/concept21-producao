@@ -1,3 +1,4 @@
+import { operationalSnapshot, reportableSnapshot } from "./lifecycle-snapshot";
 import { unstable_noStore as noStore } from "next/cache";
 import { demoSnapshot } from "./demo-data";
 import { isSnapshotKeyEnabled, isolateTransportSnapshot } from "./transport-module";
@@ -52,6 +53,22 @@ type DbProdOverview = ProductionProd & {
 type SnapshotKey = Exclude<keyof ProductionSnapshot, "source">;
 type SnapshotInclude = Partial<Record<SnapshotKey, boolean>>;
 type QueryResponse = { data: unknown[] | null; error: QueryError | null };
+type SessionClient = Awaited<ReturnType<typeof createSupabaseServerClient>>;
+type SelectQuery = ReturnType<ReturnType<SessionClient["from"]>["select"]>;
+async function fetchAllRows(build: () => SelectQuery): Promise<QueryResponse> {
+  const data: unknown[] = [];
+  let after: string | null = null;
+  while (true) {
+    let query = build().order("id").limit(500);
+    if (after) query = query.gt("id", after);
+    const result = await query;
+    if (result.error) return { data: null, error: result.error };
+    if (!result.data?.length) return { data, error: null };
+    data.push(...result.data);
+    after = String((result.data[result.data.length - 1] as { id: string }).id);
+  }
+}
+
 type SnapshotFilters = {
   prodId?: string;
   throwOnError?: boolean;
@@ -215,6 +232,9 @@ function formatStage(stage: ProductionStage): ProductionStage {
 function formatProd(prod: ProductionProd): ProductionProd {
   return {
     ...prod,
+    legacy_status: prod.status,
+    status: prod.lifecycle?.state === "concluida" ? "concluida" : prod.lifecycle?.state === "cancelada" ? "cancelada" : ["concluida", "cancelada"].includes(prod.status) ? "em_producao" : prod.status,
+    actual_end_date: prod.lifecycle?.completed_at ? new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date(prod.lifecycle.completed_at)) : null,
     description: accentDisplayText(prod.description),
     notes: accentDisplayText(prod.notes),
     pieces_count: Number(prod.pieces_count ?? 0),
@@ -553,9 +573,9 @@ async function loadProductionSnapshot(
     });
     addSnapshotQuery(queries, include, {
       key: "contracts",
-      load: () => supabase.from("production_contracts").select("*").order("contract_number"),
+      load: () => fetchAllRows(() => supabase.from("production_contracts").select("*, lifecycle:production_contract_lifecycle(*)")),
       apply: (target, data) => {
-        target.contracts = (data as ProductionContract[]).map(formatContract);
+        target.contracts = (data as ProductionContract[]).map(formatContract).sort((a,b) => a.contract_number.localeCompare(b.contract_number));
       },
     });
     addSnapshotQuery(queries, include, {
@@ -567,17 +587,17 @@ async function loadProductionSnapshot(
     });
     addSnapshotQuery(queries, include, {
       key: "prods",
-      load: () => {
-        let query = supabase.from("production_prods").select("*");
+      load: () => fetchAllRows(() => {
+        let query = supabase.from("production_prods").select("*, lifecycle:production_prod_lifecycle(*)");
 
         if (filters.prodId) {
           query = query.eq("id", filters.prodId);
         }
 
-        return query.order("created_at", { ascending: false });
-      },
+        return query;
+      }),
       apply: (target, data) => {
-        target.prods = (data as ProductionProd[]).map(formatProd);
+        target.prods = (data as ProductionProd[]).map(formatProd).sort((a,b) => b.created_at.localeCompare(a.created_at));
       },
     });
     addSnapshotQuery(queries, include, {
@@ -617,16 +637,14 @@ async function loadProductionSnapshot(
     addSnapshotQuery(queries, include, {
       key: "prodPieces",
       optionalMissing: true,
-      load: () => {
+      load: () => fetchAllRows(() => {
         const query = supabase
           .from("production_prod_pieces")
-          .select("*")
-          .order("sort_order", { ascending: true })
-          .order("piece_code", { ascending: true });
+          .select("*, disposition:production_piece_dispositions(*)");
         return filters.prodId ? query.eq("prod_id", filters.prodId) : query;
-      },
+      }),
       apply: (target, data) => {
-        target.prodPieces = (data as ProductionPiece[]).map(formatPiece);
+        target.prodPieces = (data as ProductionPiece[]).map(formatPiece).sort((a,b) => a.sort_order - b.sort_order || a.piece_code.localeCompare(b.piece_code));
       },
     });
     addSnapshotQuery(queries, include, {
@@ -802,13 +820,12 @@ async function loadProductionSnapshot(
     addSnapshotQuery(queries, include, {
       key: "stageTimeEntries",
       optionalMissing: true,
-      load: () => {
+      load: () => fetchAllRows(() => {
         const query = supabase
           .from("production_stage_time_entries")
-          .select("*")
-          .order("event_at", { ascending: false });
+          .select("*");
         return filters.prodId ? query.eq("prod_id", filters.prodId) : query;
-      },
+      }),
       apply: (target, data) => {
         target.stageTimeEntries = data as ProductionStageTimeEntry[];
       },
@@ -951,8 +968,7 @@ async function loadProductionSnapshot(
 
     if (failedResult?.error) {
       console.error("Falha ao consultar Supabase", failedResult.error);
-      if (filters.throwOnError) throw new Error("Não foi possível carregar a fila de apontamento. Tente novamente.");
-      return emptySnapshot();
+      throw new Error("Não foi possível carregar os dados da Produção. Verifique a conexão e a atualização do banco.");
     }
 
     results.forEach((result, index) => {
@@ -963,8 +979,7 @@ async function loadProductionSnapshot(
     return isolateTransportSnapshot(snapshot);
   } catch (error) {
     console.error("Falha ao carregar dados protegidos do Supabase", error);
-    if (filters.throwOnError) throw error;
-    return emptySnapshot();
+    throw error;
   }
 }
 
@@ -977,7 +992,7 @@ export async function getClientsPageData() {
 }
 
 export async function getContractsPageData() {
-  return loadProductionSnapshot(includeKeys(["clients", "contracts", "prods"]));
+  return loadProductionSnapshot(includeKeys(["clients", "contracts", "prods", "profiles"]));
 }
 
 export async function getProdsPageData() {
@@ -1015,7 +1030,7 @@ export async function getProdDetailPageData(prodId: string) {
 }
 
 export async function getPointingPageData() {
-  return loadProductionSnapshot(
+  return operationalSnapshot(await loadProductionSnapshot(
     includeKeys([
       "clients",
       "contracts",
@@ -1031,7 +1046,7 @@ export async function getPointingPageData() {
       "stageTimeEntries",
     ]),
     { throwOnError: true },
-  );
+  ));
 }
 
 export async function getFreightsPageData() {
@@ -1066,7 +1081,7 @@ export async function getRoutesPageData() {
 }
 
 export async function getReportsPageData() {
-  return loadProductionSnapshot(
+  return reportableSnapshot(await loadProductionSnapshot(
     includeKeys([
       "clients",
       "contracts",
@@ -1089,11 +1104,11 @@ export async function getReportsPageData() {
       "shippingRecords",
       "freightDemands",
     ]),
-  );
+  ));
 }
 
 export async function getDashboardPageData() {
-  return loadProductionSnapshot(
+  return reportableSnapshot(await loadProductionSnapshot(
     includeKeys([
       "clients",
       "contracts",
@@ -1117,7 +1132,7 @@ export async function getDashboardPageData() {
       "freightRouteHelpers",
       "extraServices",
     ]),
-  );
+  ));
 }
 
 export async function getProdOverview() {

@@ -100,7 +100,7 @@ export const prodSchema = z.object({
   actual_start_date: optionalText,
   actual_end_date: optionalText,
   current_stage_id: optionalUuid,
-  status: z.enum(PROD_STATUSES).default("planejamento"),
+  status: z.enum(PROD_STATUSES).refine(value => !["concluida", "cancelada"].includes(value), "Conclusão e cancelamento são calculados pelo escopo das peças.").default("planejamento"),
   notes: optionalText,
   external_source: optionalText,
   external_id: optionalText,

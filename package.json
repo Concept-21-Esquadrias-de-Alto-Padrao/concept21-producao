@@ -9,7 +9,9 @@
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:transport-db": "node scripts/verify-transport-isolation.mjs"
+    "test:transport-db": "node scripts/verify-transport-isolation.mjs",
+    "test:lifecycle-db": "node scripts/test-production-lifecycle-db.mjs",
+    "test:lifecycle-http": "node scripts/test-lifecycle-http.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.1",

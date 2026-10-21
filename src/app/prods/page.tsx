@@ -1,3 +1,5 @@
+import { LifecycleTabs } from "@/components/lifecycle-tabs";
+import { lifecycleView, parseLifecycleView, completionInPeriod } from "@/lib/lifecycle";
 import { isProdStatusSelectable } from "@/lib/transport-module";
 import { Factory, Plus } from "lucide-react";
 import Link from "next/link";
@@ -25,6 +27,9 @@ export default async function ProdsPage({
   searchParams,
 }: {
   searchParams: Promise<{
+    view?: string;
+    from?: string;
+    to?: string;
     stage?: string;
     status?: string;
     search?: string;
@@ -44,11 +49,15 @@ export default async function ProdsPage({
   }
 
   const snapshot = await getProdsPageData();
+  const view = parseLifecycleView(params.view);
+  if (view === "arquivados") redirect("/archives");
   const canCreateProds = access.isMaster || access.permissions["production.prods.create"];
   const searchFilter = (params.search ?? "").trim().toLocaleLowerCase("pt-BR");
   const contractFilter = (params.contract ?? "").trim().toLocaleLowerCase("pt-BR");
   const prodFilter = (params.prod ?? "").trim();
-  const listQuery = new URLSearchParams();
+  const listQuery = new URLSearchParams({view});
+  if (params.from) listQuery.set("from", params.from);
+  if (params.to) listQuery.set("to", params.to);
 
   if (params.search) listQuery.set("search", params.search);
   if (params.contract) listQuery.set("contract", params.contract);
@@ -68,6 +77,8 @@ export default async function ProdsPage({
     .map((prod) => buildProdContext(snapshot, prod))
     .filter((context): context is NonNullable<typeof context> => Boolean(context));
   const filteredContexts = contexts
+    .filter(context => lifecycleView(context.prod) === view)
+    .filter(context => completionInPeriod(context.prod.lifecycle?.completed_at, params.from, params.to))
     .filter((context) => !params.stage || context.prod.current_stage_id === params.stage)
     .filter((context) => !params.status || context.prod.status === params.status)
     .filter((context) => {
@@ -99,9 +110,9 @@ export default async function ProdsPage({
     <div className="space-y-6">
       <PageHeader
         title="PRODs"
-        description="Controle centralizado por lote completo de produção, sem detalhamento unitário por esquadria."
+        description="Acompanhe fabricação, saída física e conclusão por lote e consulte o histórico oficial."
         actions={
-          canCreateProds ? (
+          canCreateProds && view === "em_andamento" ? (
             <Link
               href="#nova-prod"
               className="inline-flex min-h-11 items-center gap-2 rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground hover:bg-orange-500"
@@ -113,8 +124,9 @@ export default async function ProdsPage({
         }
       />
 
-      <div className="grid gap-4 xl:grid-cols-[0.85fr_1.15fr]">
-        {canCreateProds ? (
+      <LifecycleTabs path="/prods" view={view} showArchives={access.isMaster} />
+      <div className={canCreateProds && view === "em_andamento" ? "grid gap-4 xl:grid-cols-[0.85fr_1.15fr]" : "space-y-4"}>
+        {canCreateProds && view === "em_andamento" ? (
           <Panel id="nova-prod">
             <PanelHeader title="Criar PROD" />
             <PanelBody>
@@ -174,7 +186,7 @@ export default async function ProdsPage({
                   </Field>
                   <Field label="Status geral">
                     <select name="status" className={inputClass} defaultValue="planejamento">
-                      {PROD_STATUSES.filter(isProdStatusSelectable).map((status) => (
+                      {PROD_STATUSES.filter(status => isProdStatusSelectable(status) && !["concluida", "cancelada"].includes(status)).map((status) => (
                         <option key={status} value={status}>
                           {prodStatusLabels[status]}
                         </option>
@@ -201,6 +213,11 @@ export default async function ProdsPage({
           <PanelBody>
             <div className="mb-4 grid gap-3">
               <form className="contents">
+                <input type="hidden" name="view" value={view} />
+                {view === "concluidos" && <div className="grid gap-3 sm:grid-cols-2">
+                  <Field label="Conclusão a partir de"><input className={inputClass} type="date" name="from" defaultValue={params.from} /></Field>
+                  <Field label="Conclusão até"><input className={inputClass} type="date" name="to" defaultValue={params.to} /></Field>
+                </div>}
                 <div className="grid gap-3 md:grid-cols-3">
                   <Field label="Cliente ou obra">
                     <input
@@ -258,7 +275,7 @@ export default async function ProdsPage({
                     Filtrar
                   </button>
                   <Link
-                    href="/prods"
+                    href={`/prods?view=${view}`}
                     className="inline-flex min-h-11 items-center justify-center self-end rounded-md border border-border bg-white px-4 text-sm font-semibold text-charcoal hover:bg-muted"
                   >
                     Limpar
@@ -272,13 +289,7 @@ export default async function ProdsPage({
               </form>
             </div>
 
-            {!hasAppliedListFilter ? (
-              <EmptyState
-                icon={Factory}
-                title="Localize uma PROD"
-                description="Use um ou mais filtros para consultar as PRODs cadastradas."
-              />
-            ) : filteredContexts.length === 0 ? (
+            {filteredContexts.length === 0 ? (
               <EmptyState
                 icon={Factory}
                 title="Nenhuma PROD encontrada"
@@ -292,8 +303,8 @@ export default async function ProdsPage({
                 profiles={snapshot.profiles}
                 stages={snapshot.stages}
                 returnHref={currentListHref}
-                canEdit={access.permissions["production.prods.edit"]}
-                canDelete={access.isMaster}
+                canEdit={view === "em_andamento" && (access.isMaster || access.permissions["production.prods.edit"])}
+                canDelete={false}
               />
             )}
           </PanelBody>

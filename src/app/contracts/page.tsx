@@ -1,3 +1,5 @@
+import { LifecycleTabs } from "@/components/lifecycle-tabs";
+import { parseLifecycleView, lifecycleView, completionInPeriod } from "@/lib/lifecycle";
 import { ClipboardList } from "lucide-react";
 import { redirect } from "next/navigation";
 import { ActionForm, Field, inputClass, textareaClass } from "@/components/action-form";
@@ -16,7 +18,10 @@ import {
 } from "@/lib/module-access";
 import { getCurrentPermissionFlags } from "@/lib/server-access";
 
-export default async function ContractsPage() {
+export default async function ContractsPage({ searchParams }: { searchParams: Promise<{view?: string; from?: string; to?: string}> }) {
+  const params = await searchParams;
+  const view = parseLifecycleView(params.view);
+  if (view === "arquivados") redirect("/archives");
   const access = await getCurrentPermissionFlags([
     ...appNavigationPermissionKeys,
     "production.contracts.create",
@@ -28,8 +33,9 @@ export default async function ContractsPage() {
   }
 
   const snapshot = await getContractsPageData();
-  const canCreateContracts =
-    access.isMaster || access.permissions["production.contracts.create"];
+  const filtered = snapshot.contracts.filter(c => lifecycleView(c) === view && completionInPeriod(c.lifecycle?.completed_at, params.from, params.to));
+  const canCreateContracts = view === "em_andamento" && (
+    access.isMaster || access.permissions["production.contracts.create"]);
   const canEditContracts = access.isMaster || access.permissions["production.contracts.edit"];
 
   return (
@@ -39,7 +45,14 @@ export default async function ContractsPage() {
         description="Nesta versão, contrato e obra são uma entidade única dentro de Produção."
       />
 
-      <div className="grid gap-4 xl:grid-cols-[0.9fr_1.1fr]">
+      <LifecycleTabs path="/contracts" view={view} showArchives={access.isMaster} />
+      {view === "concluidos" && <form className="flex flex-wrap items-end gap-3">
+        <input type="hidden" name="view" value={view} />
+        <Field label="Conclusão a partir de"><input type="date" className={inputClass} name="from" defaultValue={params.from} /></Field>
+        <Field label="Conclusão até"><input type="date" className={inputClass} name="to" defaultValue={params.to} /></Field>
+        <button className="min-h-11 rounded bg-charcoal px-4 text-white">Filtrar período</button>
+      </form>}
+      <div className={canCreateContracts ? "grid gap-4 xl:grid-cols-[0.9fr_1.1fr]" : "space-y-4"}>
         {canCreateContracts ? (
           <Panel>
             <PanelHeader title="Novo contrato" />
@@ -80,7 +93,7 @@ export default async function ContractsPage() {
         <Panel>
           <PanelHeader title="Contratos cadastrados" />
           <PanelBody className="space-y-3">
-            {snapshot.contracts.length === 0 ? (
+            {filtered.length === 0 ? (
               <EmptyState
                 icon={ClipboardList}
                 title="Nenhum contrato cadastrado"
@@ -88,10 +101,10 @@ export default async function ContractsPage() {
               />
             ) : (
               <ContractsList
-                contracts={snapshot.contracts}
+                contracts={filtered}
                 clients={snapshot.clients}
                 prods={snapshot.prods}
-                canEdit={canEditContracts}
+                canEdit={canEditContracts && view === "em_andamento"}
               />
             )}
           </PanelBody>

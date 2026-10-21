@@ -1,3 +1,5 @@
+import { ProdLifecyclePanel, LifecycleHistory, DispatchHistory } from "@/components/lifecycle-panel";
+import { getLifecycleHistory } from "@/lib/lifecycle-data";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, History } from "lucide-react";
@@ -40,6 +42,8 @@ export default async function ProdDetailPage({
   if (!prod) notFound();
   const context = buildProdContext(snapshot, prod);
   if (!context) notFound();
+  if ((prod.lifecycle?.archived_at || context.contract.lifecycle?.archived_at) && !routeAccess.isMaster) notFound();
+  const lifecycleHistory = await getLifecycleHistory(id, "prod");
 
   const stages = snapshot.prodStages
     .filter((stage) => stage.prod_id === prod.id)
@@ -90,6 +94,7 @@ export default async function ProdDetailPage({
     .filter((permission): permission is string => Boolean(permission));
   const access = await getCurrentPermissionFlags([
     "production.prods.update_stage",
+    "production.pointing.rollback",
     "production.prods.import_pieces",
     "production.prods.manage_pieces",
     "production.prods.release_to_production",
@@ -128,6 +133,7 @@ export default async function ProdDetailPage({
         }
       />
 
+      <ProdLifecyclePanel prod={prod} contract={context.contract} pieces={pieces} permissions={access.permissions} isMaster={access.isMaster} />
       <div className="grid gap-4 lg:grid-cols-[1fr_0.36fr]">
         <Panel>
           <PanelHeader
@@ -153,8 +159,8 @@ export default async function ProdDetailPage({
               pieceReworks={snapshot.pieceReworks}
               serverNowIso={serverNowIso}
               profiles={snapshot.profiles}
-              isMaster={access.isMaster}
-              permissions={access.permissions}
+              isMaster={Boolean(access.isMaster && !prod.lifecycle?.archived_at && !context.contract.lifecycle?.archived_at)}
+              permissions={prod.lifecycle?.archived_at || context.contract.lifecycle?.archived_at ? {} : access.permissions}
             />
           </PanelBody>
         </Panel>
@@ -187,6 +193,8 @@ export default async function ProdDetailPage({
         </Panel>
       </div>
 
+      <DispatchHistory dispatches={lifecycleHistory.dispatches} profiles={snapshot.profiles.map(p => ({id:p.id,name:p.name}))} />
+      <LifecycleHistory events={lifecycleHistory.events} profiles={snapshot.profiles.map(p => ({id:p.id,name:p.name}))} />
       <Panel>
         <details>
           <summary className="flex cursor-pointer list-none items-center justify-between gap-3 border-b border-border px-4 py-3">

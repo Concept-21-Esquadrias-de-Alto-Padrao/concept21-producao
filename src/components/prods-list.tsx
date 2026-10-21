@@ -1,5 +1,6 @@
 "use client";
 
+import { LifecycleBadge } from "./lifecycle-panel";
 import { isProdStatusSelectable } from "@/lib/transport-module";
 
 import { ActionFeedback } from "@/components/floating-feedback";
@@ -140,9 +141,9 @@ function ProdEditForm({
             defaultValue={context.prod.actual_start_date ?? ""}
           />
         </Field>
-        <Field label="Conclusão real">
+        <Field label="Conclusão na Produção (automática)">
           <input
-            name="actual_end_date"
+            readOnly
             type="date"
             className={inputClass}
             defaultValue={context.prod.actual_end_date ?? ""}
@@ -169,8 +170,8 @@ function ProdEditForm({
           </select>
         </Field>
         <Field label="Status geral">
-          <select name="status" className={inputClass} defaultValue={context.prod.status}>
-            {PROD_STATUSES.filter((status) => isProdStatusSelectable(status) || status === context.prod.status).map((status) => (
+          <select name="status" className={inputClass} defaultValue={["concluida", "cancelada"].includes(context.prod.status) ? "em_producao" : context.prod.status}>
+            {PROD_STATUSES.filter((status) => !["concluida", "cancelada"].includes(status) && (isProdStatusSelectable(status) || status === context.prod.status)).map((status) => (
               <option key={status} value={status}>
                 {prodStatusLabels[status]}
               </option>
@@ -292,6 +293,7 @@ export function ProdsList({
                     </p>
                   </div>
                   <div className="flex shrink-0 flex-wrap items-start justify-end gap-2">
+                    <LifecycleBadge item={context.prod} />
                     <PriorityBadge priority={context.prod.priority} />
                     <StatusBadge status={context.prod.status} />
                     <Link

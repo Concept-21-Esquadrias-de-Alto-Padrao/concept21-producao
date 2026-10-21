@@ -130,7 +130,7 @@ export function ExpeditionLoadControlPanel({
   );
   useActionFeedback(completeState);
   const actionPending = returning ? rollbackPending : completePending;
-  const actionLabel = returning ? "Voltar para Embalagem" : "Finalizar expedição";
+  const actionLabel = returning ? "Voltar para Embalagem" : "Concluir preparação da carga";
   useEffect(() => {
     if (!rollbackState.ok) return;
     const timer = window.setTimeout(() => {
@@ -301,7 +301,7 @@ export function ExpeditionLoadControlPanel({
           </div>
           <div className="flex flex-wrap gap-2">
             <button type="button" onClick={() => setSelectedIds(new Set())} disabled={!selectedIds.size} className="min-h-11 rounded border border-border px-3 py-2 text-sm disabled:opacity-50">Limpar</button>
-            <button type="button" disabled={!canPerform || !selectedIds.size || savePending} onClick={() => { setReturning(false); setConfirmOpen(true); }} className="min-h-11 rounded bg-charcoal px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">Finalizar expedição</button>
+            <button type="button" disabled={!canPerform || !selectedIds.size || savePending} onClick={() => { setReturning(false); setConfirmOpen(true); }} className="min-h-11 rounded bg-charcoal px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">Concluir preparação da carga</button>
             <button type="button" disabled={!canRollback || !selectedIds.size || savePending} onClick={() => { setReturning(true); setConfirmOpen(true); }} className="min-h-11 rounded border border-border px-4 py-2 text-sm font-semibold disabled:opacity-50">Voltar etapa</button>
           </div>
 </SelectionToolbar>
