@@ -29,6 +29,7 @@ import { cn } from "@/lib/utils";
 const navItems = [
   { href: "/", label: "Dashboard", icon: Home, permissions: MODULE_ACCESS.dashboard },
   { href: "/clients", label: "Clientes", icon: UserRound, permissions: MODULE_ACCESS.clients },
+  { href: "/carteira", label: "Carteira de obras", icon: BriefcaseBusiness, permissions: MODULE_ACCESS.contracts },
   {
     href: "/contracts",
     label: "Contratos",
@@ -88,7 +89,13 @@ export function AppShell({ children }: { children: ReactNode }) {
     return <>{children}</>;
   }
 
-  const visibleNavItems = navItems.filter((item) => canShowNavItem(access, item.permissions));
+  const visibleNavItems = navItems.filter((item) => {
+    if (item.href === "/carteira" && access !== "demo") {
+      if (!access || access === "loading") return false;
+      if (!isCurrentUserMaster(access) && !(access.permissions["production.contracts.view"] && access.permissions["production.prods.view"])) return false;
+    }
+    return canShowNavItem(access, item.permissions);
+  });
 
   return (
     <div className="min-h-screen bg-background text-foreground">

@@ -314,7 +314,7 @@ function ContractsReport({
                   {prods.filter((prod) => prod.status === "em_producao").length} em produção
                 </span>
                 <span className="rounded-md bg-muted px-3 py-2">
-                  Entrega: {formatDate(contract.general_delivery_forecast)}
+                  Planejamento da Produção: {formatDate(contract.general_delivery_forecast)}
                 </span>
               </div>
             </article>

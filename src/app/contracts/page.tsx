@@ -77,7 +77,7 @@ export default async function ContractsPage({ searchParams }: { searchParams: Pr
                   <input name="work_name" className={inputClass} required />
                 </Field>
                 <ContractAddressFields />
-                <Field label="Previsão geral de entrega">
+                <Field label="Data do planejamento da Produção">
                   <input name="general_delivery_forecast" type="date" className={inputClass} />
                 </Field>
                 <Field label="Observações">

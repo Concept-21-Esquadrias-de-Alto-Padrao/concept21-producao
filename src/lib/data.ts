@@ -995,6 +995,13 @@ export async function getContractsPageData() {
   return loadProductionSnapshot(includeKeys(["clients", "contracts", "prods", "profiles"]));
 }
 
+export async function getWorkPortfolioPageData(canSeeMaterials: boolean) {
+  return loadProductionSnapshot(includeKeys([
+    "clients", "contracts", "prods", "profiles", "prodPieces", "prodPieceImports",
+    "stages", ...(canSeeMaterials ? ["prodMaterials" as const] : []),
+  ]));
+}
+
 export async function getProdsPageData() {
   return loadProductionSnapshot(
     includeKeys(["clients", "contracts", "profiles", "stages", "prods", "prodMaterials"]),
