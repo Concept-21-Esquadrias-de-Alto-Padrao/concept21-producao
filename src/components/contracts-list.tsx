@@ -87,7 +87,7 @@ function ContractEditForm({
           city: contract.city,
         }}
       />
-      <Field label="Previsão geral de entrega">
+      <Field label="Data do planejamento da Produção">
         <input
           name="general_delivery_forecast"
           type="date"
@@ -277,7 +277,7 @@ export function ContractsList({ contracts, clients, prods, canEdit }: ContractsL
                   {contract.full_address}, {contract.city}/{contract.state}
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Entrega prevista: {formatDate(contract.general_delivery_forecast)}
+                  Planejamento da Produção: {formatDate(contract.general_delivery_forecast)}
                 </p>
                 {viewing ? (
                   <div className="mt-3 grid gap-2 rounded-md border border-border bg-muted/20 p-3 text-sm md:grid-cols-2">
