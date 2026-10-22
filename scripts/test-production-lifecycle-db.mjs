@@ -167,5 +167,44 @@ try {
  await db.exec('reset role');
  const completedEvents=(await one(`select count(*)::int n from production_lifecycle_events where event='prod_concluida'`)).n;
  assert(completedEvents>=3);ok('Completion/reopening history retained across cycles');
+ // Regression: archive visibility must be computed once per statement, while
+ // preserving the old predicates for every existing contract/PROD.
+ await db.exec(await readFile(new URL('../supabase/migrations/20261022131052_optimize_lifecycle_archive_reads.sql',import.meta.url),'utf8'));
+ await db.exec(`set test.uid='${actor}'; set test.company='${company}'; set test.read='true'; set test.master='false';`);
+ for (const master of [false,true]) {
+  await db.exec(`set test.master='${master}'`);
+  assert.deepEqual(await q('select id from production_prods where production_lifecycle_private.prod_visible(id) order by id'),
+   await q('select id from production_prods where id in (select production_lifecycle_private.visible_prod_ids()) order by id'));
+  assert.deepEqual(await q('select id from production_contracts where production_lifecycle_private.contract_visible(id) order by id'),
+   await q('select id from production_contracts where id in (select production_lifecycle_private.visible_contract_ids()) order by id'));
+  ok(`Set-based archive predicates equal original predicates for ${master?'administrator':'ordinary user'}`);
+ }
+ await db.exec(`set test.master='false'; set role authenticated`);
+ assert.equal((await q(`select id from production_prods where id='${p3}'`)).length,0);
+ assert.equal((await q(`select prod_id from production_prod_lifecycle where prod_id='${p3}'`)).length,0);
+ assert.equal((await q(`select id from production_lifecycle_events where prod_id='${p3}'`)).length,0);
+ ok('Optimized policies still hide archived records, summaries and events');
+ assert((await q('select prod_id from production_prod_lifecycle')).length>0);ok('Optimized policies retain authorized current work');
+ const plan=(await one('explain (analyze,verbose,format json) select prod_id from production_prod_lifecycle'))['QUERY PLAN'];
+ const nodes=[]; const visit=n=>{nodes.push(n);for(const child of n.Plans??[])visit(child)};visit(plan[0].Plan);
+ const scans=nodes.filter(n=>n['Node Type']==='ProjectSet' && n.Output?.some(output=>output.includes('visible_prod_ids()')));
+ assert.equal(scans.length,1);assert.equal(scans[0]['Actual Loops'],1);
+ ok('Archive visibility scope executes once per statement, not once per row');
+ await db.exec(`set test.master='true'`);
+ assert.equal((await q(`select id from production_prods where id='${p3}'`)).length,1);ok('Optimized administrator archive consultation retained');
+ await db.exec(`reset role; set test.master='false'; update production_contract_lifecycle set archived_at=now() where contract_id='${contract}'; set role authenticated`);
+ assert.equal((await q('select * from production_lifecycle_private.visible_prod_ids()')).length,0);
+ assert.equal((await q('select * from production_lifecycle_private.visible_contract_ids()')).length,0);
+ ok('Archived contract hides every child scope from ordinary users');
+ await db.exec(`reset role; update production_contract_lifecycle set archived_at=null where contract_id='${contract}'; set test.master='true'; set role authenticated`);
+ await db.exec(`set test.company='${otherCompany}'`);
+ assert.equal((await q('select * from production_lifecycle_private.visible_prod_ids()')).length,0);
+ assert.equal((await q('select * from production_prod_lifecycle')).length,0);ok('Optimized administrator access remains company-bound');
+ await db.exec(`set test.company='${company}'; set test.uid=''`);
+ assert.equal((await q('select * from production_lifecycle_private.visible_prod_ids()')).length,0);
+ assert.equal((await q('select * from production_lifecycle_private.visible_contract_ids()')).length,0);ok('Missing identity cannot obtain a visible scope');
+ await db.exec('reset role; set role anon');
+ await reject('select * from production_lifecycle_private.visible_prod_ids()',/permission denied/);ok('Anonymous users cannot invoke private scope helpers');
+ await db.exec('reset role');
  console.log(`${checks.length} SQL scenarios passed:\n`+checks.map(c=>'PASS '+c).join('\n'));
 } catch(error) { console.error("FAIL",error.message,error.code ?? "", error.where ?? ""); process.exitCode=1; } finally {await db.close();}
