@@ -24,8 +24,8 @@ export function LifecycleBadge({ item }: { item: ProductionContract | Production
   const view = lifecycleView(item);
   return <span className={`inline-flex rounded-md px-2 py-1 text-xs font-semibold ${view === "concluidos" ? "bg-emerald-50 text-emerald-800" : view === "arquivados" ? "bg-zinc-100 text-zinc-700" : "bg-orange-50 text-orange-900"}`}>{lifecycleViewLabels[view]}</span>;
 }
-export function LifecycleCommand({ entity, command, pieces = [], description }: {
-  entity: string; command: string; pieces?: ProductionPiece[]; description?: string;
+export function LifecycleCommand({ entity, command, pieces = [], description, romaneioNumbers = [] }: {
+  entity: string; command: string; pieces?: ProductionPiece[]; description?: string; romaneioNumbers?: string[];
 }) {
   return <details className="rounded-md border border-border bg-white p-3">
     <summary className="cursor-pointer font-semibold">{commandLabels[command]}</summary>
@@ -40,7 +40,10 @@ export function LifecycleCommand({ entity, command, pieces = [], description }: 
           <span>{piece.piece_code} · {piece.quantity} un. · {piece.location ?? "Sem local"}{piece.disposition?.cancelled_at ? " · Cancelada" : ""}</span>
         </label>)}
       </fieldset>}
-      {command === "dispatch" && <Field label="Identificação do romaneio"><input className={inputClass} name="reference" minLength={3} maxLength={200} required placeholder="Número ou referência do documento de saída" /></Field>}
+      {command === "dispatch" && <Field label="Identificação do romaneio">
+        <input className={inputClass} name="reference" list={`romaneios-${entity}`} minLength={3} maxLength={200} required placeholder="Número ou referência do documento de saída" />
+        <datalist id={`romaneios-${entity}`}>{romaneioNumbers.map(number => <option key={number} value={number} />)}</datalist>
+      </Field>}
       <Field label={command === "confirm_scope" ? "Evidência da liberação integral pelo Técnico" : "Motivo / observação"}>
         <textarea className={textareaClass} name="reason" minLength={3} maxLength={1000} required />
       </Field>
@@ -51,9 +54,9 @@ export function LifecycleCommand({ entity, command, pieces = [], description }: 
   </details>;
 }
 
-export function ProdLifecyclePanel({ prod, contract, pieces, permissions, isMaster }: {
+export function ProdLifecyclePanel({ prod, contract, pieces, permissions, isMaster, romaneioNumbers = [] }: {
   prod: ProductionProd; contract: ProductionContract; pieces: ProductionPiece[];
-  permissions: Record<string, boolean>; isMaster: boolean;
+  permissions: Record<string, boolean>; isMaster: boolean; romaneioNumbers?: string[];
 }) {
   const l = prod.lifecycle;
   const archived = Boolean(l?.archived_at || contract.lifecycle?.archived_at);
@@ -70,7 +73,7 @@ export function ProdLifecyclePanel({ prod, contract, pieces, permissions, isMast
     {l?.archived_at && <p className="text-sm">Arquivada em {formatDateTime(l.archived_at)}. Motivo: {l.archive_reason}.</p>}
     <Link href={`/contracts/${contract.id}`} className="inline-block text-sm font-semibold text-accent underline">Consultar contrato e encerramento das liberações</Link>
     {!archived && <div className="grid gap-3 lg:grid-cols-2">
-      {allowed("production.shipping.manage") && <LifecycleCommand entity={prod.id} command="dispatch" pieces={pieces.filter(p => !p.disposition?.cancelled_at)} description="Concluir a carga ou gerar um romaneio não registra a saída. Fabricação, carga e impedimentos serão conferidos novamente ao confirmar." />}
+      {allowed("production.shipping.manage") && <LifecycleCommand entity={prod.id} command="dispatch" pieces={pieces.filter(p => !p.disposition?.cancelled_at)} romaneioNumbers={romaneioNumbers} description="Concluir a carga ou gerar um romaneio não registra a saída. Fabricação, carga e impedimentos serão conferidos novamente ao confirmar." />}
       {allowed("production.pointing.rollback") && <LifecycleCommand entity={prod.id} command="return_dispatch" pieces={pieces} description="Invalida a saída vigente e reabre a PROD. Para refazer etapas, use também o retorno ou retrabalho da peça." />}
       {allowed("production.prods.manage_pieces") && <><LifecycleCommand entity={prod.id} command="cancel_pieces" pieces={pieces.filter(p => !p.disposition?.cancelled_at)} description="Cancelamento é uma destinação formal do escopo e não conta como produção. Informe a autorização no motivo." /><LifecycleCommand entity={prod.id} command="restore_pieces" pieces={pieces.filter(p => p.disposition?.cancelled_at)} /></>}
       {isMaster && !l?.completed_at && <LifecycleCommand entity={prod.id} command="archive_prod" description="Retira a PROD da rotina e a mantém na consulta administrativa. Pendências e apontamentos ativos impedem esta ação." />}

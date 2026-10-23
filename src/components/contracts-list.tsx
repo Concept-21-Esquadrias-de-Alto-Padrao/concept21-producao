@@ -281,7 +281,7 @@ export function ContractsList({ contracts, clients, prods, canEdit }: ContractsL
                 </p>
                 {viewing ? (
                   <div className="mt-3 grid gap-2 rounded-md border border-border bg-muted/20 p-3 text-sm md:grid-cols-2">
-                    <span>Rua: {contract.street}</span>
+                    <span>Logradouro: {contract.street}</span>
                     <span>Setor: {contract.sector}</span>
                     <span>Quadra: {contract.block}</span>
                     <span>Lote: {contract.lot}</span>

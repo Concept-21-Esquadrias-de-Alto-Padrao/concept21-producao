@@ -70,8 +70,8 @@ export function ContractAddressFields({ defaults }: ContractAddressFieldsProps) 
   return (
     <div className="space-y-4">
       <div className="grid gap-3 sm:grid-cols-2">
-        <Field label="Rua">
-          <input name="street" className={inputClass} defaultValue={defaults?.street ?? ""} required />
+        <Field label="Logradouro">
+          <input name="street" className={inputClass} defaultValue={defaults?.street ?? ""} placeholder="Rua das Flores, Avenida Brasil..." required />
         </Field>
         <Field label="Setor">
           <input name="sector" className={inputClass} defaultValue={defaults?.sector ?? ""} required />

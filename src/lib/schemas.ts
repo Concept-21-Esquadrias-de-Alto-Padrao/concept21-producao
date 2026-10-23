@@ -54,7 +54,7 @@ const contractBaseSchema = z.object({
   contract_number: z.string().trim().min(1, "Informe o número do contrato"),
   client_id: z.string().uuid("Selecione um cliente"),
   work_name: z.string().trim().min(2, "Informe a obra"),
-  street: requiredAddressPart("Informe a rua"),
+  street: requiredAddressPart("Informe o logradouro completo"),
   block: requiredAddressPart("Informe a quadra"),
   lot: requiredAddressPart("Informe o lote"),
   sector: requiredAddressPart("Informe o setor"),
@@ -73,7 +73,7 @@ const contractBaseSchema = z.object({
 function normalizeContractAddress<T extends z.infer<typeof contractBaseSchema>>(data: T) {
   return {
     ...data,
-    full_address: `Rua ${data.street}, Quadra ${data.block}, Lote ${data.lot}, Setor ${data.sector}`,
+    full_address: `${data.street}, Quadra ${data.block}, Lote ${data.lot}, Setor ${data.sector}`,
     zip_code: null,
     site_contact: null,
     site_contact_phone: null,

@@ -11,6 +11,7 @@
     "test:watch": "vitest",
     "test:transport-db": "node scripts/verify-transport-isolation.mjs",
     "test:lifecycle-db": "node scripts/test-production-lifecycle-db.mjs",
+    "test:romaneios-db": "node scripts/test-numbered-romaneios-db.mjs",
     "test:lifecycle-http": "node scripts/test-lifecycle-http.mjs"
   },
   "dependencies": {

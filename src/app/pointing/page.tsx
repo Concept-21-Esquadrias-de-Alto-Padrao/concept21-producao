@@ -80,6 +80,7 @@ export default async function PointingPage() {
                 indirectActivitySessions={snapshot.indirectActivitySessions}
                 timeEntries={snapshot.stageTimeEntries}
                 canPerform={canPerform}
+                canViewProds={canAccessModule(access, MODULE_ACCESS.prods)}
                 canArchiveExpedition={access.isMaster}
                 canRollback={canRollback}
                 canAdjustTime={canAdjustTime}

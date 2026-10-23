@@ -1,5 +1,9 @@
 import { ProdLifecyclePanel, LifecycleHistory, DispatchHistory } from "@/components/lifecycle-panel";
 import { getLifecycleHistory } from "@/lib/lifecycle-data";
+import { ProdRomaneiosPanel } from "@/components/prod-romaneios-panel";
+import type { IssuedRomaneio } from "@/app/romaneio-actions";
+import { isExpeditionArchived } from "@/lib/expedition-archive";
+import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, History } from "lucide-react";
@@ -60,6 +64,21 @@ export default async function ProdDetailPage({
     (pieceImport) => pieceImport.prod_id === prod.id,
   );
   const pieceStages = snapshot.prodPieceStages.filter((pieceStage) => pieceStage.prod_id === prod.id);
+  const admin = getSupabaseAdminClient();
+  const [{ data: romaneios, error: romaneioError }, { data: assignedItems, error: assignedError }] = await Promise.all([
+    admin.from("production_romaneios").select("id,number,created_at,report")
+      .eq("prod_id", prod.id).order("created_at", { ascending: false }),
+    admin.from("production_romaneio_items").select("piece_stage_id")
+      .eq("prod_id", prod.id),
+  ]);
+  if (romaneioError || assignedError) throw new Error("Não foi possível carregar os romaneios desta PROD.");
+  const assignedIds = new Set((assignedItems ?? []).map(item => item.piece_stage_id));
+  const activePieceIds = new Set(pieces.filter(piece => !piece.disposition?.cancelled_at).map(piece => piece.id));
+  const expeditionStageIds = new Set(snapshot.stages.filter(stage => stage.sort_order === 9).map(stage => stage.id));
+  const pendingRomaneioPieces = pieceStages.filter(row =>
+    expeditionStageIds.has(row.stage_id) && Number(row.load_volume_count ?? 0) > 0 &&
+    activePieceIds.has(row.piece_id) && !isExpeditionArchived(row) && !assignedIds.has(row.id),
+  ).length;
   const shipping = snapshot.shippingRecords.find((record) => record.prod_id === prod.id) ?? null;
   const audit = snapshot.auditLogs
     .filter((log) => log.entity_id === prod.id)
@@ -109,6 +128,7 @@ export default async function ProdDetailPage({
     "production.preparation_assembly.manage",
     "production.packaging.manage",
     "production.shipping.manage",
+    "production.pointing.perform",
     ...stagePermissionKeys,
   ]);
   const serverNowIso = new Date().toISOString();
@@ -133,7 +153,7 @@ export default async function ProdDetailPage({
         }
       />
 
-      <ProdLifecyclePanel prod={prod} contract={context.contract} pieces={pieces} permissions={access.permissions} isMaster={access.isMaster} />
+      <ProdLifecyclePanel prod={prod} contract={context.contract} pieces={pieces} permissions={access.permissions} isMaster={access.isMaster} romaneioNumbers={(romaneios ?? []).map(document => document.number)} />
       <div className="grid gap-4 lg:grid-cols-[1fr_0.36fr]">
         <Panel>
           <PanelHeader
@@ -193,6 +213,13 @@ export default async function ProdDetailPage({
         </Panel>
       </div>
 
+      <ProdRomaneiosPanel
+        prodId={prod.id}
+        romaneios={(romaneios ?? []) as IssuedRomaneio[]}
+        canIssue={!prod.lifecycle?.archived_at && !context.contract.lifecycle?.archived_at &&
+          (access.isMaster || Boolean(access.permissions["production.pointing.perform"] || access.permissions["production.shipping.manage"]))}
+        pendingPieces={pendingRomaneioPieces}
+      />
       <DispatchHistory dispatches={lifecycleHistory.dispatches} profiles={snapshot.profiles.map(p => ({id:p.id,name:p.name}))} />
       <LifecycleHistory events={lifecycleHistory.events} profiles={snapshot.profiles.map(p => ({id:p.id,name:p.name}))} />
       <Panel>
