@@ -554,11 +554,6 @@ export function ProductionPointingBoard({
     if (rowIsReleased(pieceStage)) return true;
     return canReleaseProduction && activeStageIndex === 0;
   }), [stageRows, rowMatchesFilters, pointingPieceStages, pointingStages, rowIsReleased, canReleaseProduction, activeStageIndex]);
-  const romaneioRows = useMemo(() => stageRows.filter((pieceStage) =>
-    rowMatchesFilters(pieceStage) &&
-    !isExpeditionArchived(pieceStage) &&
-    Number(pieceStage.load_volume_count ?? 0) > 0,
-  ), [stageRows, rowMatchesFilters]);
   const groupedOpenRows = useMemo(() => {
     const groups = new Map<
       string,
@@ -956,7 +951,6 @@ export function ProductionPointingBoard({
           pieces={pieces}
           stageRows={stageRows}
           openRows={openRows}
-          romaneioRows={romaneioRows}
           canPerform={canPerform}
           canRollback={canRollback}
         />
