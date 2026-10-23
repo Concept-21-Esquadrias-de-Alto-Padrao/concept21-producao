@@ -20,6 +20,8 @@ describe("conciliação do escopo integral", () => {
   });
   it("não considera proposta ou obra sem PROD uma liberação integral", () => {
     expect(reconcileContractScope({ ...revision, source_kind: "proposta" }, prods, pieces).status).toBe("pendente");
+    expect(reconcileContractScope({ ...revision, source_kind: "proposta" }, prods, pieces).match).toBe(true);
+    expect(reconcileContractScope({ ...revision, source_kind: "proposta" }, prods, pieces.slice(0, 3)).match).toBe(false);
     expect(reconcileContractScope(revision, [], []).status).toBe("pendente");
     expect(reconcileContractScope(null, prods, pieces).status).toBe("sem_base");
   });

@@ -207,6 +207,7 @@ try {
  await reject('select * from production_lifecycle_private.visible_prod_ids()',/permission denied/);ok('Anonymous users cannot invoke private scope helpers');
  await db.exec('reset role');
  await db.exec(await readFile(new URL('../supabase/migrations/20261023110041_contract_scope_revisions.sql',import.meta.url),'utf8'));
+ await db.exec(await readFile(new URL('../supabase/migrations/20261023183000_confirm_existing_contract_scope.sql',import.meta.url),'utf8'));
  const scopeContract=id(201),scopeProd=id(202),scopeImport=id(203),scopePiece=id(204);
  await db.exec(`insert into production_contracts(id,company_id,client_id,contract_number,work_name,full_address,city,state)
  values('${scopeContract}','${company}','${client}','TEST-2','Obra fictícia','Rua fictícia','Goiânia','GO');
@@ -235,6 +236,38 @@ try {
  await register('tecnico_integral',[{code:'J01',quantity:1},{code:'J02',quantity:1}]);
  assert.equal((await one(`select scope_confirmed_at from production_contract_lifecycle where contract_id='${scopeContract}'`)).scope_confirmed_at,null);
  ok('New integral revision with missing item invalidates prior reconciliation');
+ const existingContract=id(301), existingProd=id(302), existingImport=id(303);
+ await db.exec(`insert into production_contracts(id,company_id,client_id,contract_number,work_name,full_address,city,state)
+ values('${existingContract}','${company}','${client}','TEST-3','Obra conferida','Rua fictícia','Goiânia','GO');
+ insert into production_prods(id,company_id,contract_id,prod_number) values('${existingProd}','${company}','${existingContract}',1);
+ insert into production_piece_imports(id,company_id,prod_id,file_name) values('${existingImport}','${company}','${existingProd}','itens.pdf');
+ insert into production_prod_pieces(id,company_id,prod_id,piece_code,quantity,released_to_production,import_batch_id)
+ values ('${id(304)}','${company}','${existingProd}','J01',1,true,'${existingImport}'),
+ ('${id(305)}','${company}','${existingProd}','J02',1,true,'${existingImport}'),
+ ('${id(306)}','${company}','${existingProd}','P06',1,true,'${existingImport}'),
+ ('${id(307)}','${company}','${existingProd}','P07',1,true,'${existingImport}');`);
+ const proposalItems=[{code:'J01',quantity:1},{code:'J02',quantity:1},{code:'P06',quantity:1},{code:'P07',quantity:1}];
+ await db.query('select public.production_contract_scope_register($1,$2,$3,$4,$5,$6::jsonb)',
+   [actor,existingContract,'proposta','X:/Contratos/TEST-3/Desenho.pdf','01',JSON.stringify(proposalItems)]);
+ const existingRevision=(await one(`select id from production_contract_scope_revisions where contract_id='${existingContract}'`)).id;
+ const confirm=(who=actor,expected=existingRevision)=>db.query(
+   'select public.production_contract_scope_confirm_existing($1,$2,$3,$4,$5) n',
+   [who,existingContract,expected,'X:/Tecnico/TEST-3/Lista vigente.pdf','02']);
+ assert.equal((await one(`select count(*)::int n from production_contract_lifecycle where contract_id='${existingContract}' and scope_confirmed_at is not null`)).n,0);
+ await assert.rejects(confirm(actor,id(399)),/lista do contrato mudou/);
+ await assert.rejects(confirm(otherActor),/lista do contrato mudou/);
+ await db.exec(`update production_prod_pieces set released_to_production=false where id='${id(304)}'`);
+ await assert.rejects(confirm(),/ainda não coincidem integralmente/);
+ assert.equal((await one(`select count(*)::int n from production_contract_scope_revisions where contract_id='${existingContract}'`)).n,1);
+ await db.exec(`update production_prod_pieces set released_to_production=true where id='${id(304)}'`);
+ assert.equal((await confirm()).rows[0].n,2);
+ const promoted=await one(`select source_kind,source_reference,items from production_contract_scope_revisions where contract_id='${existingContract}' order by revision_number desc limit 1`);
+ assert.equal(promoted.source_kind,'tecnico_integral');
+ assert.equal(promoted.source_reference,'X:/Tecnico/TEST-3/Lista vigente.pdf');
+ assert.deepEqual(promoted.items,proposalItems);
+ assert((await one(`select scope_confirmed_at from production_contract_lifecycle where contract_id='${existingContract}'`)).scope_confirmed_at);
+ await assert.rejects(confirm(),/lista do contrato mudou/);
+ ok('Existing four-piece proposal is attested once, atomically reconciled and protected from stale or divergent data');
  await db.exec('reset role');
  console.log(`${checks.length} SQL scenarios passed:\n`+checks.map(c=>'PASS '+c).join('\n'));
 } catch(error) { console.error("FAIL",error.message,error.code ?? "", error.where ?? ""); process.exitCode=1; } finally {await db.close();}

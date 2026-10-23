@@ -1351,6 +1351,33 @@ export async function registerContractScopeAction(_: ActionState, formData: Form
   return { ok: true, message: `Revisão ${data} da lista integral registrada.` };
 }
 
+export async function confirmExistingContractScopeAction(_: ActionState, formData: FormData): Promise<ActionState> {
+  const context = await getActionContext();
+  if (!context.ok) return context.state;
+  const denied = await requireActionPermission(context, "production.contracts.edit", "Sem permissão para confirmar o escopo técnico.");
+  if (denied) return denied;
+
+  const contractId = String(formData.get("contract_id") ?? "");
+  const revisionId = String(formData.get("revision_id") ?? "");
+  const reference = String(formData.get("source_reference") ?? "").trim();
+  const revision = String(formData.get("source_revision") ?? "").trim();
+  if (!/^[0-9a-f-]{36}$/i.test(contractId) || !/^[0-9a-f-]{36}$/i.test(revisionId) ||
+      reference.length < 3 || reference.length > 500 || revision.length > 100 ||
+      formData.get("confirmed_technical_scope") !== "yes") {
+    return { ok: false, message: "Confira a lista vigente do Técnico e confirme os dados da revisão." };
+  }
+
+  const { data, error } = await getSupabaseAdminClient().rpc("production_contract_scope_confirm_existing", {
+    p_actor: context.profileId, p_contract: contractId, p_expected_revision: revisionId,
+    p_reference: reference, p_source_revision: revision,
+  });
+  if (error) return { ok: false, message: toUserFriendlyErrorMessage(error) };
+  revalidatePath(`/carteira/${contractId}`);
+  revalidatePath("/carteira");
+  revalidatePath(`/contracts/${contractId}`);
+  return { ok: true, message: `Escopo vigente confirmado e revisão ${data} conciliada automaticamente com as PRODs.` };
+}
+
 export async function updateContractAction(_: ActionState, formData: FormData) {
   const context = await getActionContext();
   if (!context.ok) return context.state;

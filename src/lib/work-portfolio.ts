@@ -10,6 +10,7 @@ export type WorkPortfolioRow = {
   pieceUnits: number;
   releasedLines: number;
   scopeStatus: "sem_base" | "pendente" | "completo";
+  scopeReady: boolean;
   materialState: "indisponivel" | "sem_prod" | "nao_verificado" | "pendente" | "confirmado";
   progress: "sem_prod" | "sem_itens" | "em_planejamento" | "em_producao" | "concluido";
 };
@@ -60,6 +61,7 @@ export function buildWorkPortfolio(snapshot: ProductionSnapshot, canSeeMaterials
           : prods.some(prod => ["em_producao", "embalagem", "expedicao"].includes(prod.status))
             ? "em_producao" : "em_planejamento";
 
+    const scope = reconcileContractScope(revisions.get(contract.id) ?? null, prods, pieces);
     return {
       contract,
       clientName: clientNames.get(contract.client_id) ?? "Cliente não identificado",
@@ -67,7 +69,8 @@ export function buildWorkPortfolio(snapshot: ProductionSnapshot, canSeeMaterials
       pieceLines: activePieces.length,
       pieceUnits: activePieces.reduce((sum, piece) => sum + Number(piece.quantity || 0), 0),
       releasedLines: activePieces.filter(piece => piece.released_to_production).length,
-      scopeStatus: reconcileContractScope(revisions.get(contract.id) ?? null, prods, pieces).status,
+      scopeStatus: scope.status,
+      scopeReady: scope.status === "pendente" && scope.match && revisions.get(contract.id)?.source_kind === "proposta",
       materialState,
       progress,
     };
