@@ -206,5 +206,35 @@ try {
  await db.exec('reset role; set role anon');
  await reject('select * from production_lifecycle_private.visible_prod_ids()',/permission denied/);ok('Anonymous users cannot invoke private scope helpers');
  await db.exec('reset role');
+ await db.exec(await readFile(new URL('../supabase/migrations/20261023110041_contract_scope_revisions.sql',import.meta.url),'utf8'));
+ const scopeContract=id(201),scopeProd=id(202),scopeImport=id(203),scopePiece=id(204);
+ await db.exec(`insert into production_contracts(id,company_id,client_id,contract_number,work_name,full_address,city,state)
+ values('${scopeContract}','${company}','${client}','TEST-2','Obra fictícia','Rua fictícia','Goiânia','GO');
+ insert into production_prods(id,company_id,contract_id,prod_number) values('${scopeProd}','${company}','${scopeContract}',1);
+ insert into production_piece_imports(id,company_id,prod_id,file_name) values('${scopeImport}','${company}','${scopeProd}','itens.pdf');`);
+ await db.exec('set role service_role');
+ const register=async(kind,items)=>db.query('select public.production_contract_scope_register($1,$2,$3,$4,$5,$6::jsonb) n',
+   [actor,scopeContract,kind,'X:/Contratos/TEST-2/Desenho.pdf','01',JSON.stringify(items)]);
+ await assert.rejects(command('confirm_scope',scopeContract),/Lista integral vigente/);
+ ok('Legacy manual confirmation cannot bypass missing contract baseline');
+ await assert.rejects(db.query('select public.production_contract_scope_register($1,$2,$3,$4,$5,$6::jsonb)',
+   [otherActor,scopeContract,'tecnico_integral','X:/Contratos/TEST-2/Desenho.pdf','01',JSON.stringify([{code:'J01',quantity:1}])]),/empresa/);
+ ok('Cross-company baseline registration denied');
+ assert.equal((await register('proposta',[{code:'J01',quantity:1}])).rows[0].n,1);
+ assert.equal((await one(`select count(*)::int n from production_contract_lifecycle where contract_id='${scopeContract}' and scope_confirmed_at is not null`)).n,0);
+ assert.equal((await register('tecnico_integral',[{code:'J01',quantity:1}])).rows[0].n,2);
+ await db.exec(`insert into production_prod_pieces(id,company_id,prod_id,piece_code,quantity,released_to_production,import_batch_id)
+ values('${scopePiece}','${company}','${scopeProd}','J01',1,true,'${scopeImport}')`);
+ assert((await one(`select scope_confirmed_at from production_contract_lifecycle where contract_id='${scopeContract}'`)).scope_confirmed_at);
+ ok('Current complete Technical list automatically reconciles imported PROD items');
+ await db.exec(`update production_prod_pieces set quantity=2 where id='${scopePiece}'`);
+ assert.equal((await one(`select scope_confirmed_at from production_contract_lifecycle where contract_id='${scopeContract}'`)).scope_confirmed_at,null);
+ ok('Quantity mismatch reopens technical scope');
+ await db.exec(`update production_prod_pieces set quantity=1 where id='${scopePiece}'`);
+ assert((await one(`select scope_confirmed_at from production_contract_lifecycle where contract_id='${scopeContract}'`)).scope_confirmed_at);
+ await register('tecnico_integral',[{code:'J01',quantity:1},{code:'J02',quantity:1}]);
+ assert.equal((await one(`select scope_confirmed_at from production_contract_lifecycle where contract_id='${scopeContract}'`)).scope_confirmed_at,null);
+ ok('New integral revision with missing item invalidates prior reconciliation');
+ await db.exec('reset role');
  console.log(`${checks.length} SQL scenarios passed:\n`+checks.map(c=>'PASS '+c).join('\n'));
 } catch(error) { console.error("FAIL",error.message,error.code ?? "", error.where ?? ""); process.exitCode=1; } finally {await db.close();}

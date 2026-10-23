@@ -1,4 +1,5 @@
 import { lifecycleView } from "./lifecycle";
+import { reconcileContractScope } from "./contract-scope";
 import type { ProductionContract, ProductionProd, ProductionSnapshot } from "./types";
 
 export type WorkPortfolioRow = {
@@ -8,6 +9,7 @@ export type WorkPortfolioRow = {
   pieceLines: number;
   pieceUnits: number;
   releasedLines: number;
+  scopeStatus: "sem_base" | "pendente" | "completo";
   materialState: "indisponivel" | "sem_prod" | "nao_verificado" | "pendente" | "confirmado";
   progress: "sem_prod" | "sem_itens" | "em_planejamento" | "em_producao" | "concluido";
 };
@@ -17,6 +19,11 @@ export function buildWorkPortfolio(snapshot: ProductionSnapshot, canSeeMaterials
   const prodsByContract = new Map<string, ProductionProd[]>();
   const piecesByProd = new Map<string, typeof snapshot.prodPieces>();
   const materialsByProd = new Map<string, typeof snapshot.prodMaterials>();
+  const revisions = new Map<string, (typeof snapshot.contractScopeRevisions)[number]>();
+  for (const revision of snapshot.contractScopeRevisions ?? []) {
+    const prior = revisions.get(revision.contract_id);
+    if (!prior || prior.revision_number < revision.revision_number) revisions.set(revision.contract_id, revision);
+  }
   for (const prod of snapshot.prods) {
     const list = prodsByContract.get(prod.contract_id) ?? [];
     list.push(prod);
@@ -60,6 +67,7 @@ export function buildWorkPortfolio(snapshot: ProductionSnapshot, canSeeMaterials
       pieceLines: activePieces.length,
       pieceUnits: activePieces.reduce((sum, piece) => sum + Number(piece.quantity || 0), 0),
       releasedLines: activePieces.filter(piece => piece.released_to_production).length,
+      scopeStatus: reconcileContractScope(revisions.get(contract.id) ?? null, prods, pieces).status,
       materialState,
       progress,
     };

@@ -65,9 +65,10 @@ export default async function WorkPortfolioPage({ searchParams }: { searchParams
           <div><dt className="text-muted-foreground">Data do planejamento</dt><dd>{formatDate(row.contract.general_delivery_forecast)}</dd></div>
           <div><dt className="text-muted-foreground">PRODs</dt><dd>{row.prods.length}</dd></div>
           <div><dt className="text-muted-foreground">Itens nas PRODs</dt><dd>{row.pieceLines} linhas · {row.pieceUnits} unidades</dd></div>
+          <div><dt className="text-muted-foreground">Liberação técnica integral</dt><dd>{row.scopeStatus === "completo" ? "Lista integral conciliada" : row.scopeStatus === "sem_base" ? "Falta lista integral" : "Conciliação pendente"}</dd></div>
         </dl>
       </article>)}
     </div>
-    <p className="text-xs text-muted-foreground">Os itens de cada PROD representam apenas aquela liberação. Sem a lista integral e conciliada do contrato, esta tela não afirma liberação técnica completa.</p>
+    <p className="text-xs text-muted-foreground">Cada PDF contém apenas os itens da respectiva PROD. A liberação integral depende da lista vigente do Técnico conciliada com todas as PRODs.</p>
   </div>;
 }

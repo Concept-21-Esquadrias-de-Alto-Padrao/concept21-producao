@@ -1,8 +1,11 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { ActionForm, Field, inputClass, textareaClass } from "@/components/action-form";
+import { registerContractScopeAction } from "@/app/actions";
 import { LifecycleHistory } from "@/components/lifecycle-panel";
 import { PageHeader } from "@/components/page-header";
 import { getWorkPortfolioPageData } from "@/lib/data";
+import { reconcileContractScope } from "@/lib/contract-scope";
 import { getLifecycleHistory } from "@/lib/lifecycle-data";
 import { lifecycleView, lifecycleViewLabels } from "@/lib/lifecycle";
 import { materialConfirmationLabels, prodStatusLabels } from "@/lib/labels";
@@ -13,7 +16,7 @@ import { buildWorkPortfolio, materialStateLabels, workProgressLabels } from "@/l
 
 export default async function WorkDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const access = await getCurrentPermissionFlags([...appNavigationPermissionKeys, "production.materials.view"]);
+  const access = await getCurrentPermissionFlags([...appNavigationPermissionKeys, "production.materials.view", "production.contracts.edit"]);
   if (!access.isMaster && !(access.permissions["production.contracts.view"] && access.permissions["production.prods.view"])) {
     redirect(firstAllowedAppRoute(access) ?? "/login");
   }
@@ -22,6 +25,10 @@ export default async function WorkDetail({ params }: { params: Promise<{ id: str
   const row = buildWorkPortfolio(snapshot, canSeeMaterials).find(item => item.contract.id === id);
   if (!row || row.contract.lifecycle?.archived_at) notFound();
   const { contract, prods } = row;
+  const revisions = snapshot.contractScopeRevisions.filter(item => item.contract_id === id)
+    .sort((a, b) => b.revision_number - a.revision_number);
+  const revision = revisions[0] ?? null;
+  const scope = reconcileContractScope(revision, prods, snapshot.prodPieces);
   const history = await getLifecycleHistory(id, "contract");
 
   return <div className="space-y-6">
@@ -34,15 +41,38 @@ export default async function WorkDetail({ params }: { params: Promise<{ id: str
         <div><dt className="text-muted-foreground">Contato da obra</dt><dd>{[contract.site_contact, contract.site_contact_phone].filter(Boolean).join(" · ") || "Não informado"}</dd></div>
         <div><dt className="text-muted-foreground">Andamento</dt><dd>{workProgressLabels[row.progress]}</dd></div>
         <div><dt className="text-muted-foreground">Materiais das PRODs</dt><dd>{materialStateLabels[row.materialState]}</dd></div>
-        <div><dt className="text-muted-foreground">Liberação técnica integral</dt><dd>{contract.lifecycle?.scope_confirmed_at ? `Confirmação registrada em ${formatDateTime(contract.lifecycle.scope_confirmed_at)}; conciliação de itens ainda não disponível` : "Conciliação de itens pendente"}</dd></div>
+        <div><dt className="text-muted-foreground">Liberação técnica integral</dt><dd>{scope.status === "completo" ? "Lista integral conciliada com todas as PRODs" : scope.status === "sem_base" ? "Falta lista integral vigente do contrato" : "Conciliação pendente"}</dd></div>
       </dl>
       <Link href={`/contracts/${id}`} className="mt-4 inline-block text-sm font-semibold text-accent underline">Abrir cadastro e histórico do contrato</Link>
     </section>
     <section className="rounded-md border border-border bg-white p-4">
       <h2 className="font-semibold">Itens do contrato e desenhos</h2>
-      <p className="mt-2 text-sm">A lista integral dos itens do contrato e a referência à revisão dos desenhos ainda não estão registradas nesta carteira.</p>
-      <p className="mt-1 text-sm text-muted-foreground">Os desenhos permanecem na pasta do cliente no servidor. Os PDFs de itens importados em cada PROD contêm somente os itens daquela PROD e não comprovam, isoladamente, o fim das liberações do contrato.</p>
+      {revision ? <>
+        <p className="mt-2 text-sm">Revisão registrada {revision.revision_number} · {revision.source_kind === "tecnico_integral" ? "Lista integral vigente do Técnico" : "Proposta para referência"} · {formatDateTime(revision.created_at)}</p>
+        <p className="mt-1 break-all text-sm">Referência no servidor: {revision.source_reference}{revision.source_revision ? ` · revisão do documento ${revision.source_revision}` : ""}</p>
+        <p className="mt-2 text-sm font-semibold">{scope.totalFound} de {scope.totalExpected} unidades nas PRODs · {scope.status === "completo" ? "conciliação completa" : "conciliação pendente"}</p>
+        <div className="mt-3 overflow-x-auto"><table className="w-full min-w-[400px] text-left text-sm"><thead><tr className="border-b"><th className="p-2">Item do contrato</th><th className="p-2">Código na PROD</th><th className="p-2">Esperado</th><th className="p-2">Encontrado</th></tr></thead><tbody>
+          {scope.lines.map(line => <tr key={line.code} className="border-b"><td className="p-2">{line.code}</td><td className="p-2">{line.prodCode}</td><td className="p-2">{line.expected}</td><td className="p-2">{line.found}</td></tr>)}
+        </tbody></table></div>
+        {!!scope.extras.length && <p className="mt-2 text-sm text-amber-900">Itens nas PRODs fora da lista vigente: {scope.extras.map(item => `${item.code} (${item.quantity})`).join(", ")}.</p>}
+        {revisions.length > 1 && <p className="mt-2 text-xs text-muted-foreground">{revisions.length - 1} revisão(ões) anterior(es) preservada(s) no histórico.</p>}
+      </> : <p className="mt-2 text-sm">Registre a lista integral vigente do contrato para comparar as peças de todas as PRODs. Até lá, a liberação permanece pendente.</p>}
+      <p className="mt-2 text-sm text-muted-foreground">Os desenhos permanecem na pasta do cliente no servidor. Uma proposta pode ser registrada como referência, mas não confirma o escopo integral vigente. Cada PDF de itens contém somente a respectiva PROD.</p>
     </section>
+    {(access.isMaster || access.permissions["production.contracts.edit"]) && <section className="rounded-md border border-border bg-white p-4">
+      <h2 className="font-semibold">Registrar revisão da lista integral</h2>
+      <p className="mt-1 text-sm text-muted-foreground">Use a lista completa vigente do Técnico. Se houver desdobro ou troca de código, informe o código correspondente na PROD em cada linha. Uma nova revisão substitui a anterior para a comparação, sem apagar o histórico.</p>
+      <ActionForm action={registerContractScopeAction} submitLabel="Registrar revisão" className="mt-4">
+        <input type="hidden" name="contract_id" value={id} />
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="Origem da lista"><select required className={inputClass} name="source_kind" defaultValue=""><option value="" disabled>Selecione a origem</option><option value="proposta">Proposta ou desenho (referência provisória)</option><option value="tecnico_integral">Lista integral vigente conferida no Técnico</option></select></Field>
+          <Field label="Identificação da revisão do documento (se houver)"><input className={inputClass} name="source_revision" maxLength={100} placeholder="Ex.: revisão 02" /></Field>
+        </div>
+        <Field label="Caminho da lista ou desenho na pasta do cliente"><input required className={inputClass} name="source_reference" maxLength={500} placeholder="X:\\Contratos em Produção\\Cliente - contrato\\Comercial\\..." /></Field>
+        <Field label="Itens integrais, uma linha por item"><textarea required className={textareaClass} name="items" rows={7} placeholder={"J01;1\nJ02;1\nP06;1\nP07;1\nCódigo diferente: ORIGINAL;1;CÓDIGO_NA_PROD"} /></Field>
+        <p className="text-xs text-muted-foreground">Formato: CÓDIGO;QUANTIDADE;CÓDIGO_NA_PROD (último campo opcional). Registre desdobros como linhas separadas da lista vigente.</p>
+      </ActionForm>
+    </section>}
     <section className="space-y-3">
       <h2 className="font-semibold">Liberações recebidas · {prods.length} PROD(s)</h2>
       {!prods.length && <p className="rounded-md border border-border bg-white p-4 text-sm">Sem PROD cadastrada. A obra permanece visível para o planejamento.</p>}

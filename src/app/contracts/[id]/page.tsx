@@ -24,10 +24,11 @@ export default async function ContractDetail({ params }: { params: Promise<{ id:
     <PageHeader title={`Contrato ${contract.contract_number}`} description={`${snapshot.clients.find(c => c.id === contract.client_id)?.name ?? ""} · ${contract.work_name}`} actions={<Link href="/contracts" className="underline">Voltar aos contratos</Link>} />
     <section className="space-y-3 rounded-md border border-border bg-white p-4">
       <LifecycleBadge item={contract} />
-      <p className="text-sm">Escopo técnico: {l?.scope_confirmed_at ? `confirmado em ${formatDateTime(l.scope_confirmed_at)}` : "aguardando confirmação de todas as liberações"}.</p>
+      <p className="text-sm">Escopo técnico: {l?.scope_confirmed_at ? `conciliado em ${formatDateTime(l.scope_confirmed_at)}` : "aguardando lista integral e conciliação com as PRODs"}.</p>
+      <Link href={`/carteira/${id}`} className="text-sm font-semibold text-accent underline">Conferir itens do contrato e PRODs</Link>
       {l?.scope_evidence && <p className="text-sm">Evidência: {l.scope_evidence}</p>}
       <p className="text-sm">Encerramento na Produção: {formatDateTime(l?.completed_at)}.</p>
-      {!l?.scope_confirmed_at && allFinished && <p className="rounded bg-amber-50 p-3 text-sm text-amber-900">Lotes atuais concluídos — aguardando encerramento das liberações pelo Técnico.</p>}
+      {!l?.scope_confirmed_at && allFinished && <p className="rounded bg-amber-50 p-3 text-sm text-amber-900">Lotes atuais concluídos — aguardando conciliação com a lista integral do Técnico.</p>}
       {l?.archived_at && <p className="text-sm">Arquivado em {formatDateTime(l.archived_at)}. Motivo: {l.archive_reason}.</p>}
       <p className="text-sm text-muted-foreground">A conclusão deste contrato se refere à Produção. Instalação e entrega final ao cliente são acompanhadas em Obras.</p>
     </section>
@@ -36,7 +37,7 @@ export default async function ContractDetail({ params }: { params: Promise<{ id:
       {prods.map(prod => <Link key={prod.id} href={`/prods/${prod.id}`} className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border bg-white p-3"><span>PROD {prod.prod_number} · {prod.description}</span><LifecycleBadge item={prod} /></Link>)}
     </section>
     {!l?.archived_at && <div className="grid gap-3 lg:grid-cols-2">
-      {(access.isMaster || access.permissions["production.contracts.confirm_scope"]) && <LifecycleCommand entity={id} command={l?.scope_confirmed_at ? "reopen_scope" : "confirm_scope"} description="A confirmação deve ser feita pelo Técnico após conferir todo o escopo vigente, inclusive o que ainda não tinha sido liberado. Mudanças de peças ou novas PRODs invalidam essa confirmação." />}
+      {l?.scope_confirmed_at && (access.isMaster || access.permissions["production.contracts.confirm_scope"]) && <LifecycleCommand entity={id} command="reopen_scope" description="Reabra a confirmação se encontrar uma divergência. Registre a lista integral revisada na carteira; a conciliação será recalculada automaticamente." />}
       {(access.isMaster || access.permissions["production.contracts.close"]) && <LifecycleCommand entity={id} command={l?.completed_at ? "reopen_contract" : "close_contract"} description="O banco verificará novamente a confirmação técnica, todas as PRODs e os impedimentos antes de registrar o encerramento." />}
       {access.isMaster && !l?.completed_at && <LifecycleCommand entity={id} command="archive_contract" description="Somente contratos cujas PRODs estejam individualmente arquivadas podem ser arquivados. Nada é movido para Concluídos." />}
     </div>}

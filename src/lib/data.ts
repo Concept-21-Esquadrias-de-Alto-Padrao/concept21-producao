@@ -81,6 +81,7 @@ type SnapshotQuery = {
 };
 
 const allSnapshotKeys: SnapshotKey[] = [
+  "contractScopeRevisions",
   "departments",
   "logisticsRecipients",
   "logisticsDrivers",
@@ -126,6 +127,7 @@ function includeKeys(keys: SnapshotKey[]): SnapshotInclude {
 
 function emptySnapshot(): ProductionSnapshot {
   return {
+    contractScopeRevisions: [],
     source: "supabase",
     departments: [],
     logisticsRecipients: [],
@@ -507,6 +509,15 @@ async function loadProductionSnapshot(
 
     const snapshot = emptySnapshot();
     const queries: SnapshotQuery[] = [];
+
+    addSnapshotQuery(queries, include, {
+      key: "contractScopeRevisions",
+      optionalMissing: true,
+      load: () => fetchAllRows(() => supabase.from("production_contract_scope_revisions").select("*")),
+      apply: (target, data) => {
+        target.contractScopeRevisions = data as ProductionSnapshot["contractScopeRevisions"];
+      },
+    });
 
     addSnapshotQuery(queries, include, {
       key: "departments",
@@ -997,7 +1008,7 @@ export async function getContractsPageData() {
 
 export async function getWorkPortfolioPageData(canSeeMaterials: boolean) {
   return loadProductionSnapshot(includeKeys([
-    "clients", "contracts", "prods", "profiles", "prodPieces", "prodPieceImports",
+    "clients", "contracts", "prods", "profiles", "prodPieces", "prodPieceImports", "contractScopeRevisions",
     "stages", ...(canSeeMaterials ? ["prodMaterials" as const] : []),
   ]));
 }

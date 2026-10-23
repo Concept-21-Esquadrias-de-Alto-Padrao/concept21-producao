@@ -760,6 +760,7 @@ export type AuditLog = {
 };
 
 export type ProductionSnapshot = {
+  contractScopeRevisions: import("./contract-scope").ContractScopeRevision[];
   departments: Department[];
   logisticsRecipients: LogisticsRecipient[];
   logisticsDrivers: LogisticsDriver[];
