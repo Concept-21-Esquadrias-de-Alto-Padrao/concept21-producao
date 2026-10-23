@@ -29,6 +29,7 @@ import {
   LOAD_CONTROL_ITEMS,
   pieceDimensions,
 } from "@/lib/expedition";
+import { isPieceStageDone } from "@/lib/pointing";
 import type {
   Client,
   ProductionContract,
@@ -50,6 +51,7 @@ type ExpeditionLoadControlPanelProps = {
   pieces: ProductionPiece[];
   stageRows: ProductionPieceStage[];
   openRows: ProductionPieceStage[];
+  romaneioRows: ProductionPieceStage[];
   canPerform: boolean;
   canRollback: boolean;
 };
@@ -109,6 +111,7 @@ export function ExpeditionLoadControlPanel({
   pieces,
   stageRows,
   openRows,
+  romaneioRows,
   canPerform,
   canRollback,
 }: ExpeditionLoadControlPanelProps) {
@@ -149,37 +152,43 @@ export function ExpeditionLoadControlPanel({
   const pieceById = useMemo(() => new Map(pieces.map((piece) => [piece.id, piece])), [pieces]);
   const selectedJson = JSON.stringify(Array.from(selectedIds));
   const openRowIds = useMemo(() => new Set(openRows.map((row) => row.id)), [openRows]);
+  const romaneioRowIds = useMemo(() => new Set(romaneioRows.map((row) => row.id)), [romaneioRows]);
 
   const groupedRows = useMemo(() => {
-    const groups = new Map<string, ProductionPieceStage[]>();
+    const groups = new Map<string, { rows: ProductionPieceStage[]; reportRows: ProductionPieceStage[] }>();
 
-    for (const row of stageRows.filter((stageRow) => openRowIds.has(stageRow.id))) {
-      const rows = groups.get(row.prod_id) ?? [];
-      rows.push(row);
-      groups.set(row.prod_id, rows);
+    for (const row of stageRows) {
+      if (!openRowIds.has(row.id) && !romaneioRowIds.has(row.id)) continue;
+      const group = groups.get(row.prod_id) ?? { rows: [], reportRows: [] };
+      if (openRowIds.has(row.id)) group.rows.push(row);
+      if (romaneioRowIds.has(row.id)) group.reportRows.push(row);
+      groups.set(row.prod_id, group);
     }
 
-    return Array.from(groups.entries()).map(([prodId, rows]) => {
+    return Array.from(groups.entries()).map(([prodId, { rows, reportRows }]) => {
       const prod = prodById.get(prodId) ?? null;
       const contract = prod ? contractById.get(prod.contract_id) ?? null : null;
       const client = contract ? clientById.get(contract.client_id) ?? null : null;
-      const groupPieces = rows
+      const groupPieces = reportRows
         .map((row) => pieceById.get(row.piece_id))
         .filter((piece): piece is ProductionPiece => Boolean(piece));
       const report =
-        prod && contract && client
+        prod && contract && client && reportRows.length
           ? buildExpeditionRomaneioReport({
               client,
               contract,
               prod,
               pieces: groupPieces,
-              pieceStages: rows,
+              pieceStages: reportRows,
             })
           : null;
 
-      return { prodId, prod, contract, client, rows, report };
+      return {
+        prodId, prod, contract, client, rows, report,
+        completedWithVolumes: reportRows.filter((row) => isPieceStageDone(row.status)).length,
+      };
     });
-  }, [clientById, contractById, openRowIds, pieceById, prodById, stageRows]);
+  }, [clientById, contractById, openRowIds, pieceById, prodById, romaneioRowIds, stageRows]);
   const visibleOpenRows = useMemo(
     () =>
       groupedRows.flatMap((group) =>
@@ -252,25 +261,25 @@ export function ExpeditionLoadControlPanel({
     });
   }
 
-  if (openRows.length === 0) {
+  if (groupedRows.length === 0) {
     return (
       <EmptyState
         icon={PackageCheck}
         title="Nenhuma peça aberta em expedição"
-        description="Peças finalizadas saem da fila operacional. O histórico permanece disponível nos relatórios."
+        description="Peças finalizadas saem da fila operacional. PRODs com volumes registrados continuam disponíveis para gerar romaneios."
       />
     );
   }
 
   return (
     <div className="space-y-4">
-      <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+      {openRows.length > 0 ? <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
         A expedição não usa cronômetro. Preencha o controle de carga, salve os volumes e finalize a
         expedição com matrícula e senha do operador.
-      </div>
+      </div> : null}
 
       <form action={saveAction} className="space-y-4">
-<div className="flex flex-wrap gap-2">            <button
+{openRows.length > 0 ? <div className="flex flex-wrap gap-2">            <button
               type="button"
               onClick={toggleAllVisible}
               disabled={!visibleOpenRows.length}
@@ -292,7 +301,7 @@ export function ExpeditionLoadControlPanel({
               )}
               Salvar controle
             </button>
-</div>
+</div> : null}
 <SelectionToolbar active={selectedIds.size > 0} label="Ações de expedição">          <div>
             <p className="font-semibold text-charcoal">Controle de carga</p>
             <p className="text-sm text-muted-foreground">
@@ -345,6 +354,9 @@ export function ExpeditionLoadControlPanel({
                       <span className="rounded-full bg-muted px-2 py-1 text-muted-foreground">
                         {openGroupRows.length} peça(s) aberta(s)
                       </span>
+                      {group.completedWithVolumes > 0 ? <span className="rounded-full bg-emerald-50 px-2 py-1 text-emerald-800">
+                        {group.completedWithVolumes} concluída(s) com volumes
+                      </span> : null}
                       {selectedCount ? (
                         <span className="rounded-full bg-orange-50 px-2 py-1 text-accent ring-1 ring-orange-200">
                           {selectedCount} selecionada(s)
@@ -359,8 +371,8 @@ export function ExpeditionLoadControlPanel({
               {expanded ? (
                 openGroupRows.length === 0 ? (
                   <p className="p-4 text-sm text-muted-foreground">
-                    Não há peças abertas para controle nesta PROD. O romaneio pode ser gerado se já
-                    houver volumes salvos.
+                    Não há peças abertas para controle nesta PROD. O romaneio inclui as peças com
+                    volumes salvos, mesmo após a conclusão da carga.
                   </p>
                 ) : (
                   <div className="space-y-3 p-3">
