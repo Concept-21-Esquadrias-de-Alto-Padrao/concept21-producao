@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { parseContractScopeItems } from "@/lib/contract-scope";
 import { isTransportStage, TRANSPORT_ENABLED, TRANSPORT_DISABLED_MESSAGE } from "@/lib/transport-module";
 import { calculateOwnVehicleRouteCosts } from "@/lib/production";
 import { LOAD_CONTROL_ITEMS } from "@/lib/expedition";
@@ -1310,6 +1311,38 @@ export async function createContractAction(_: ActionState, formData: FormData) {
     return { ok: false, message: parsed.error.issues[0]?.message ?? "Dados inválidos" };
   }
   return insertRow("production_contracts", parsed.data, "/contracts");
+}
+
+export async function registerContractScopeAction(_: ActionState, formData: FormData): Promise<ActionState> {
+  const context = await getActionContext();
+  if (!context.ok) return context.state;
+  const denied = await requireActionPermission(context, "production.contracts.edit", "Sem permissão para revisar os itens do contrato.");
+  if (denied) return denied;
+  const contractId = String(formData.get("contract_id") ?? "");
+  const kind = String(formData.get("source_kind") ?? "");
+  const reference = String(formData.get("source_reference") ?? "").trim();
+  const revision = String(formData.get("source_revision") ?? "").trim();
+  if (!/^[0-9a-f-]{36}$/i.test(contractId) || !["proposta", "tecnico_integral"].includes(kind) || reference.length < 3 || reference.length > 500 || revision.length > 100) {
+    return { ok: false, message: "Confira o contrato, o tipo e a referência da lista integral." };
+  }
+  let items;
+  try {
+    items = parseContractScopeItems(String(formData.get("items") ?? ""));
+  } catch (error) {
+    return { ok: false, message: error instanceof Error ? error.message : "Lista de itens inválida." };
+  }
+  const { data: contract, error: contractError } = await context.supabase.from("production_contracts")
+    .select("id").eq("id", contractId).eq("company_id", context.companyId).eq("active", true).maybeSingle();
+  if (contractError || !contract) return { ok: false, message: "Contrato ativo não encontrado na sua empresa." };
+  const { data, error } = await getSupabaseAdminClient().rpc("production_contract_scope_register", {
+    p_actor: context.profileId, p_contract: contractId, p_kind: kind,
+    p_reference: reference, p_revision: revision, p_items: items,
+  });
+  if (error) return { ok: false, message: toUserFriendlyErrorMessage(error) };
+  revalidatePath(`/carteira/${contractId}`);
+  revalidatePath("/carteira");
+  revalidatePath(`/contracts/${contractId}`);
+  return { ok: true, message: `Revisão ${data} da lista integral registrada.` };
 }
 
 export async function updateContractAction(_: ActionState, formData: FormData) {

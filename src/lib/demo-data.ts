@@ -4,6 +4,7 @@ const now = "2026-07-13T12:00:00.000Z";
 
 export const demoSnapshot: ProductionSnapshot = {
   source: "demo",
+  contractScopeRevisions: [],
   departments: [
     { id: "dep-production", name: "Produção", active: true },
     { id: "dep-supplies", name: "Suprimentos", active: true },
