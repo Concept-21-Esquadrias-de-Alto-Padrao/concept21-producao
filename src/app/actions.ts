@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { parseContractScopeItems } from "@/lib/contract-scope";
+import { parseContractScopePdf } from "@/lib/contract-scope-pdf";
 import { isTransportStage, TRANSPORT_ENABLED, TRANSPORT_DISABLED_MESSAGE } from "@/lib/transport-module";
 import { calculateOwnVehicleRouteCosts } from "@/lib/production";
 import { LOAD_CONTROL_ITEMS } from "@/lib/expedition";
@@ -1322,21 +1322,27 @@ export async function registerContractScopeAction(_: ActionState, formData: Form
   const kind = String(formData.get("source_kind") ?? "");
   const reference = String(formData.get("source_reference") ?? "").trim();
   const revision = String(formData.get("source_revision") ?? "").trim();
+  const file = formData.get("pdf_file");
   if (!/^[0-9a-f-]{36}$/i.test(contractId) || !["proposta", "tecnico_integral"].includes(kind) || reference.length < 3 || reference.length > 500 || revision.length > 100) {
-    return { ok: false, message: "Confira o contrato, o tipo e a referência da lista integral." };
+    return { ok: false, message: "Confira o contrato, a origem e a referência do documento." };
   }
-  let items;
+  if (!(file instanceof File) || file.size === 0 || file.size > 3 * 1024 * 1024) return { ok: false, message: "Selecione um PDF de até 3 MB." };
+  if (kind === "tecnico_integral" && formData.get("confirmed_technical_scope") !== "yes") {
+    return { ok: false, message: "Confira a lista integral vigente no Técnico antes de confirmar o escopo." };
+  }
+  let preview;
   try {
-    items = parseContractScopeItems(String(formData.get("items") ?? ""));
+    preview = await parseContractScopePdf(Buffer.from(await file.arrayBuffer()));
   } catch (error) {
-    return { ok: false, message: error instanceof Error ? error.message : "Lista de itens inválida." };
+    return { ok: false, message: error instanceof Error ? error.message : "Não foi possível ler o PDF." };
   }
   const { data: contract, error: contractError } = await context.supabase.from("production_contracts")
-    .select("id").eq("id", contractId).eq("company_id", context.companyId).eq("active", true).maybeSingle();
+    .select("id,contract_number").eq("id", contractId).eq("company_id", context.companyId).eq("active", true).maybeSingle();
   if (contractError || !contract) return { ok: false, message: "Contrato ativo não encontrado na sua empresa." };
+  if (preview.contractNumber !== contract.contract_number) return { ok: false, message: "O número do PDF não corresponde ao contrato desta obra." };
   const { data, error } = await getSupabaseAdminClient().rpc("production_contract_scope_register", {
     p_actor: context.profileId, p_contract: contractId, p_kind: kind,
-    p_reference: reference, p_revision: revision, p_items: items,
+    p_reference: reference, p_revision: revision, p_items: preview.items,
   });
   if (error) return { ok: false, message: toUserFriendlyErrorMessage(error) };
   revalidatePath(`/carteira/${contractId}`);
