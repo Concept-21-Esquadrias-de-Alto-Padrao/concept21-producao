@@ -26,7 +26,7 @@ export default async function ContractDetail({ params }: { params: Promise<{ id:
       <LifecycleBadge item={contract} />
       <p className="text-sm">Escopo técnico: {l?.scope_confirmed_at ? `conciliado em ${formatDateTime(l.scope_confirmed_at)}` : "aguardando lista integral e conciliação com as PRODs"}.</p>
       <Link href={`/carteira/${id}`} className="text-sm font-semibold text-accent underline">Conferir itens do contrato e PRODs</Link>
-      {l?.scope_evidence && <p className="text-sm">Evidência: {l.scope_evidence}</p>}
+      {l?.scope_evidence && <p className="text-sm">A conferência do escopo está registrada no histórico abaixo.</p>}
       <p className="text-sm">Encerramento na Produção: {formatDateTime(l?.completed_at)}.</p>
       {!l?.scope_confirmed_at && allFinished && <p className="rounded bg-amber-50 p-3 text-sm text-amber-900">Lotes atuais concluídos — aguardando conciliação com a lista integral do Técnico.</p>}
       {l?.archived_at && <p className="text-sm">Arquivado em {formatDateTime(l.archived_at)}. Motivo: {l.archive_reason}.</p>}

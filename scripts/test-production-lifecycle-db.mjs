@@ -208,6 +208,7 @@ try {
  await db.exec('reset role');
  await db.exec(await readFile(new URL('../supabase/migrations/20261023110041_contract_scope_revisions.sql',import.meta.url),'utf8'));
  await db.exec(await readFile(new URL('../supabase/migrations/20261023183000_confirm_existing_contract_scope.sql',import.meta.url),'utf8'));
+ await db.exec(await readFile(new URL('../supabase/migrations/20261023194500_scope_without_server_path.sql',import.meta.url),'utf8'));
  const scopeContract=id(201),scopeProd=id(202),scopeImport=id(203),scopePiece=id(204);
  await db.exec(`insert into production_contracts(id,company_id,client_id,contract_number,work_name,full_address,city,state)
  values('${scopeContract}','${company}','${client}','TEST-2','Obra fictícia','Rua fictícia','Goiânia','GO');
@@ -252,7 +253,7 @@ try {
  const existingRevision=(await one(`select id from production_contract_scope_revisions where contract_id='${existingContract}'`)).id;
  const confirm=(who=actor,expected=existingRevision)=>db.query(
    'select public.production_contract_scope_confirm_existing($1,$2,$3,$4,$5) n',
-   [who,existingContract,expected,'X:/Tecnico/TEST-3/Lista vigente.pdf','02']);
+   [who,existingContract,expected,null,'02']);
  assert.equal((await one(`select count(*)::int n from production_contract_lifecycle where contract_id='${existingContract}' and scope_confirmed_at is not null`)).n,0);
  await assert.rejects(confirm(actor,id(399)),/lista do contrato mudou/);
  await assert.rejects(confirm(otherActor),/lista do contrato mudou/);
@@ -263,7 +264,7 @@ try {
  assert.equal((await confirm()).rows[0].n,2);
  const promoted=await one(`select source_kind,source_reference,items from production_contract_scope_revisions where contract_id='${existingContract}' order by revision_number desc limit 1`);
  assert.equal(promoted.source_kind,'tecnico_integral');
- assert.equal(promoted.source_reference,'X:/Tecnico/TEST-3/Lista vigente.pdf');
+ assert.equal(promoted.source_reference,'Itens previamente lidos na revisão 1');
  assert.deepEqual(promoted.items,proposalItems);
  assert((await one(`select scope_confirmed_at from production_contract_lifecycle where contract_id='${existingContract}'`)).scope_confirmed_at);
  await assert.rejects(confirm(),/lista do contrato mudou/);

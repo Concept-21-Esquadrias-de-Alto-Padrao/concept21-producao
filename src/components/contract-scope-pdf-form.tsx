@@ -53,9 +53,6 @@ export function ContractScopePdfForm({ contractId }: { contractId: string }) {
       </select></Field>
       <Field label="Identificação da revisão (se houver)"><input className={inputClass} name="source_revision" maxLength={100} placeholder="Ex.: revisão 02" /></Field>
     </div>
-    <Field label={kind === "tecnico_integral" ? "Caminho da lista vigente conferida no Técnico" : "Caminho do desenho na pasta do cliente"}>
-      <input required className={inputClass} name="source_reference" maxLength={500} placeholder="X:\\Contratos em Produção\\Cliente - contrato\\Comercial\\..." />
-    </Field>
     {kind === "tecnico_integral" && <label className="flex gap-2 text-sm"><input type="checkbox" required name="confirmed_technical_scope" value="yes" className="mt-1" /><span>Conferi que todos os itens e quantidades extraídos do PDF correspondem à lista integral vigente no Técnico, incluindo revisões e desdobros.</span></label>}
     <div className="flex flex-wrap items-center gap-3">
       <button type="submit" disabled={!preview || loading || pending} className="min-h-11 rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground disabled:cursor-not-allowed disabled:opacity-60">{pending ? "Registrando..." : "Registrar itens lidos"}</button>

@@ -1320,13 +1320,14 @@ export async function registerContractScopeAction(_: ActionState, formData: Form
   if (denied) return denied;
   const contractId = String(formData.get("contract_id") ?? "");
   const kind = String(formData.get("source_kind") ?? "");
-  const reference = String(formData.get("source_reference") ?? "").trim();
   const revision = String(formData.get("source_revision") ?? "").trim();
   const file = formData.get("pdf_file");
-  if (!/^[0-9a-f-]{36}$/i.test(contractId) || !["proposta", "tecnico_integral"].includes(kind) || reference.length < 3 || reference.length > 500 || revision.length > 100) {
-    return { ok: false, message: "Confira o contrato, a origem e a referência do documento." };
+  if (!/^[0-9a-f-]{36}$/i.test(contractId) || !["proposta", "tecnico_integral"].includes(kind) || revision.length > 100) {
+    return { ok: false, message: "Confira o contrato, a origem e a revisão do documento." };
   }
   if (!(file instanceof File) || file.size === 0 || file.size > 3 * 1024 * 1024) return { ok: false, message: "Selecione um PDF de até 3 MB." };
+  const fileName = file.name.trim();
+  if (fileName.length < 3 || fileName.length > 500) return { ok: false, message: "O nome do PDF deve ter entre 3 e 500 caracteres." };
   if (kind === "tecnico_integral" && formData.get("confirmed_technical_scope") !== "yes") {
     return { ok: false, message: "Confira a lista integral vigente no Técnico antes de confirmar o escopo." };
   }
@@ -1342,7 +1343,7 @@ export async function registerContractScopeAction(_: ActionState, formData: Form
   if (preview.contractNumber !== contract.contract_number) return { ok: false, message: "O número do PDF não corresponde ao contrato desta obra." };
   const { data, error } = await getSupabaseAdminClient().rpc("production_contract_scope_register", {
     p_actor: context.profileId, p_contract: contractId, p_kind: kind,
-    p_reference: reference, p_revision: revision, p_items: preview.items,
+    p_reference: fileName, p_revision: revision, p_items: preview.items,
   });
   if (error) return { ok: false, message: toUserFriendlyErrorMessage(error) };
   revalidatePath(`/carteira/${contractId}`);
@@ -1359,17 +1360,16 @@ export async function confirmExistingContractScopeAction(_: ActionState, formDat
 
   const contractId = String(formData.get("contract_id") ?? "");
   const revisionId = String(formData.get("revision_id") ?? "");
-  const reference = String(formData.get("source_reference") ?? "").trim();
   const revision = String(formData.get("source_revision") ?? "").trim();
   if (!/^[0-9a-f-]{36}$/i.test(contractId) || !/^[0-9a-f-]{36}$/i.test(revisionId) ||
-      reference.length < 3 || reference.length > 500 || revision.length > 100 ||
+      revision.length > 100 ||
       formData.get("confirmed_technical_scope") !== "yes") {
     return { ok: false, message: "Confira a lista vigente do Técnico e confirme os dados da revisão." };
   }
 
   const { data, error } = await getSupabaseAdminClient().rpc("production_contract_scope_confirm_existing", {
     p_actor: context.profileId, p_contract: contractId, p_expected_revision: revisionId,
-    p_reference: reference, p_source_revision: revision,
+    p_reference: null, p_source_revision: revision,
   });
   if (error) return { ok: false, message: toUserFriendlyErrorMessage(error) };
   revalidatePath(`/carteira/${contractId}`);
