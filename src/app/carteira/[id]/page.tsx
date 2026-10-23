@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ContractScopePdfForm } from "@/components/contract-scope-pdf-form";
+import { ContractScopeConfirmation } from "@/components/contract-scope-confirmation";
 import { LifecycleHistory } from "@/components/lifecycle-panel";
 import { PageHeader } from "@/components/page-header";
 import { getWorkPortfolioPageData } from "@/lib/data";
@@ -40,20 +41,24 @@ export default async function WorkDetail({ params }: { params: Promise<{ id: str
         <div><dt className="text-muted-foreground">Contato da obra</dt><dd>{[contract.site_contact, contract.site_contact_phone].filter(Boolean).join(" · ") || "Não informado"}</dd></div>
         <div><dt className="text-muted-foreground">Andamento</dt><dd>{workProgressLabels[row.progress]}</dd></div>
         <div><dt className="text-muted-foreground">Materiais das PRODs</dt><dd>{materialStateLabels[row.materialState]}</dd></div>
-        <div><dt className="text-muted-foreground">Liberação técnica integral</dt><dd>{scope.status === "completo" ? "Lista integral conciliada com todas as PRODs" : scope.status === "sem_base" ? "Falta lista integral vigente do contrato" : "Conciliação pendente"}</dd></div>
+        <div><dt className="text-muted-foreground">Liberação técnica integral</dt><dd>{scope.status === "completo" ? "Lista integral conciliada com todas as PRODs" : revision?.source_kind === "proposta" && scope.match ? "Peças coincidem; confirmar lista vigente do Técnico" : scope.status === "sem_base" ? "Falta lista integral vigente do contrato" : "Conciliação pendente"}</dd></div>
       </dl>
       <Link href={`/contracts/${id}`} className="mt-4 inline-block text-sm font-semibold text-accent underline">Abrir cadastro e histórico do contrato</Link>
     </section>
-    <section className="rounded-md border border-border bg-white p-4">
+    <section id="escopo" className="rounded-md border border-border bg-white p-4">
       <h2 className="font-semibold">Itens do contrato e desenhos</h2>
       {revision ? <>
         <p className="mt-2 text-sm">Revisão registrada {revision.revision_number} · {revision.source_kind === "tecnico_integral" ? "Lista integral vigente do Técnico" : "Proposta para referência"} · {formatDateTime(revision.created_at)}</p>
         <p className="mt-1 break-all text-sm">Referência no servidor: {revision.source_reference}{revision.source_revision ? ` · revisão do documento ${revision.source_revision}` : ""}</p>
-        <p className="mt-2 text-sm font-semibold">{scope.totalFound} de {scope.totalExpected} unidades nas PRODs · {scope.status === "completo" ? "conciliação completa" : "conciliação pendente"}</p>
+        <p className="mt-2 text-sm font-semibold">{scope.totalFound} de {scope.totalExpected} unidades nas PRODs · {scope.status === "completo" ? "escopo integral conciliado" : scope.match ? "peças coincidem; falta confirmar a origem vigente" : "peças ainda não conciliadas"}</p>
         <div className="mt-3 overflow-x-auto"><table className="w-full min-w-[400px] text-left text-sm"><thead><tr className="border-b"><th className="p-2">Item do contrato</th><th className="p-2">Código na PROD</th><th className="p-2">Esperado</th><th className="p-2">Encontrado</th></tr></thead><tbody>
           {scope.lines.map(line => <tr key={line.code} className="border-b"><td className="p-2">{line.code}</td><td className="p-2">{line.prodCode}</td><td className="p-2">{line.expected}</td><td className="p-2">{line.found}</td></tr>)}
         </tbody></table></div>
         {!!scope.extras.length && <p className="mt-2 text-sm text-amber-900">Itens nas PRODs fora da lista vigente: {scope.extras.map(item => `${item.code} (${item.quantity})`).join(", ")}.</p>}
+        {revision.source_kind === "proposta" && scope.match && (access.isMaster || access.permissions["production.contracts.edit"]) &&
+          <ContractScopeConfirmation contractId={id} revisionId={revision.id} sourceReference={revision.source_reference}
+            sourceRevision={revision.source_revision} count={scope.totalExpected} />}
+        {revision.source_kind === "proposta" && !scope.match && <p className="mt-3 rounded bg-amber-50 p-3 text-sm text-amber-900">Confira códigos, quantidades, peças importadas e liberação de cada PROD. Quando coincidirem, a confirmação do escopo vigente aparecerá aqui.</p>}
         {revisions.length > 1 && <p className="mt-2 text-xs text-muted-foreground">{revisions.length - 1} revisão(ões) anterior(es) preservada(s) no histórico.</p>}
       </> : <p className="mt-2 text-sm">Registre a lista integral vigente do contrato para comparar as peças de todas as PRODs. Até lá, a liberação permanece pendente.</p>}
       <p className="mt-2 text-sm text-muted-foreground">Os desenhos permanecem na pasta do cliente no servidor. Uma proposta pode ser registrada como referência, mas não confirma o escopo integral vigente. Cada PDF de itens contém somente a respectiva PROD.</p>

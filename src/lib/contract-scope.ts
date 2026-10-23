@@ -1,5 +1,3 @@
-import type { ProductionPiece, ProductionProd } from "./types";
-
 export type ContractScopeItem = {
   code: string;
   quantity: number;
@@ -42,10 +40,11 @@ export function parseContractScopeItems(value: string): ContractScopeItem[] {
 
 export function reconcileContractScope(
   revision: ContractScopeRevision | null,
-  prods: ProductionProd[],
-  pieces: ProductionPiece[],
+  prods: { id: string; lifecycle?: { archived_at: string | null } | null }[],
+  pieces: { prod_id: string; piece_code: string; quantity: number; import_batch_id: string | null;
+    released_to_production: boolean; disposition?: { cancelled_at: string | null } | null }[],
 ) {
-  if (!revision) return { status: "sem_base" as const, lines: [], extras: [], totalExpected: 0, totalFound: 0 };
+  if (!revision) return { status: "sem_base" as const, match: false, lines: [], extras: [], totalExpected: 0, totalFound: 0 };
   const prodIds = new Set(prods.map(prod => prod.id));
   const active = pieces.filter(piece => prodIds.has(piece.prod_id) && !piece.disposition?.cancelled_at);
   const actual = new Map<string, number>();
@@ -67,9 +66,10 @@ export function reconcileContractScope(
   const extras = [...actual].filter(([code]) => !expected.has(code)).map(([code, quantity]) => ({ code, quantity }));
   const totalExpected = revision.items.reduce((sum, item) => sum + item.quantity, 0);
   const totalFound = active.reduce((sum, piece) => sum + Number(piece.quantity), 0);
-  const complete = revision.source_kind === "tecnico_integral" && prods.length > 0 &&
-    prods.every(prod => active.some(piece => piece.prod_id === prod.id)) &&
+  const match = prods.length > 0 &&
+    prods.every(prod => !prod.lifecycle?.archived_at && active.some(piece => piece.prod_id === prod.id)) &&
     active.every(piece => piece.import_batch_id && piece.released_to_production) &&
     lines.every(line => (actual.get(line.prodCode.toUpperCase()) ?? 0) === (expected.get(line.prodCode.toUpperCase()) ?? 0)) && !extras.length;
-  return { status: complete ? "completo" as const : "pendente" as const, lines, extras, totalExpected, totalFound };
+  return { status: match && revision.source_kind === "tecnico_integral" ? "completo" as const : "pendente" as const,
+    match, lines, extras, totalExpected, totalFound };
 }

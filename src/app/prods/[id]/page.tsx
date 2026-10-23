@@ -3,6 +3,7 @@ import { getLifecycleHistory } from "@/lib/lifecycle-data";
 import { ProdRomaneiosPanel } from "@/components/prod-romaneios-panel";
 import type { IssuedRomaneio } from "@/app/romaneio-actions";
 import { isExpeditionArchived } from "@/lib/expedition-archive";
+import { reconcileContractScope, type ContractScopeRevision } from "@/lib/contract-scope";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
@@ -65,6 +66,28 @@ export default async function ProdDetailPage({
   );
   const pieceStages = snapshot.prodPieceStages.filter((pieceStage) => pieceStage.prod_id === prod.id);
   const admin = getSupabaseAdminClient();
+  const { data: latestScopeRevision, error: scopeError } = await admin.from("production_contract_scope_revisions")
+    .select("*").eq("contract_id", context.contract.id).order("revision_number", { ascending: false }).limit(1).maybeSingle();
+  if (scopeError) throw scopeError;
+  let proposalMatchesProds = false;
+  if (latestScopeRevision?.source_kind === "proposta") {
+    const { data: contractProds, error: prodsError } = await admin.from("production_prods")
+      .select("id, lifecycle:production_prod_lifecycle(archived_at)").eq("contract_id", context.contract.id);
+    if (prodsError) throw prodsError;
+    const ids = (contractProds ?? []).map(item => item.id);
+    if (ids.length) {
+      const { data: contractPieces, error: piecesError } = await admin.from("production_prod_pieces")
+        .select("id,prod_id,piece_code,quantity,import_batch_id,released_to_production,disposition:production_piece_dispositions(cancelled_at)")
+        .in("prod_id", ids);
+      if (piecesError) throw piecesError;
+      const scopeProds = (contractProds ?? []).map(item => ({ id: item.id,
+        lifecycle: { archived_at: (Array.isArray(item.lifecycle) ? item.lifecycle[0] : item.lifecycle)?.archived_at ?? null } }));
+      const scopePieces = (contractPieces ?? []).map(item => ({ ...item,
+        disposition: { cancelled_at: (Array.isArray(item.disposition) ? item.disposition[0] : item.disposition)?.cancelled_at ?? null } }));
+      proposalMatchesProds = reconcileContractScope(latestScopeRevision as ContractScopeRevision,
+        scopeProds, scopePieces).match;
+    }
+  }
   const [{ data: romaneios, error: romaneioError }, { data: assignedItems, error: assignedError }] = await Promise.all([
     admin.from("production_romaneios").select("id,number,created_at,report")
       .eq("prod_id", prod.id).order("created_at", { ascending: false }),
@@ -129,6 +152,8 @@ export default async function ProdDetailPage({
     "production.packaging.manage",
     "production.shipping.manage",
     "production.pointing.perform",
+    "production.contracts.edit",
+    "production.contracts.view",
     ...stagePermissionKeys,
   ]);
   const serverNowIso = new Date().toISOString();
@@ -153,6 +178,12 @@ export default async function ProdDetailPage({
         }
       />
 
+      {proposalMatchesProds && (access.isMaster || (access.permissions["production.contracts.edit"] && access.permissions["production.contracts.view"])) &&
+        <div className="rounded-md border border-amber-300 bg-amber-50 p-4 text-sm">
+          <p className="font-semibold">As peças da lista já coincidem com as PRODs deste contrato.</p>
+          <p className="mt-1">Confirme se a lista representa todo o escopo vigente do Técnico. Depois disso, a conciliação será registrada automaticamente.</p>
+          <Link href={`/carteira/${context.contract.id}#escopo`} className="mt-2 inline-block font-semibold text-accent underline">Conferir e confirmar o escopo</Link>
+        </div>}
       <ProdLifecyclePanel prod={prod} contract={context.contract} pieces={pieces} permissions={access.permissions} isMaster={access.isMaster} romaneioNumbers={(romaneios ?? []).map(document => document.number)} />
       <div className="grid gap-4 lg:grid-cols-[1fr_0.36fr]">
         <Panel>
