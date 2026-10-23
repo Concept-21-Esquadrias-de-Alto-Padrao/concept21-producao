@@ -49,14 +49,14 @@ export default async function WorkDetail({ params }: { params: Promise<{ id: str
       <h2 className="font-semibold">Itens do contrato e desenhos</h2>
       {revision ? <>
         <p className="mt-2 text-sm">Revisão registrada {revision.revision_number} · {revision.source_kind === "tecnico_integral" ? "Lista integral vigente do Técnico" : "Proposta para referência"} · {formatDateTime(revision.created_at)}</p>
-        <p className="mt-1 break-all text-sm">Referência no servidor: {revision.source_reference}{revision.source_revision ? ` · revisão do documento ${revision.source_revision}` : ""}</p>
+        {revision.source_revision && <p className="mt-1 text-sm">Revisão do documento: {revision.source_revision}</p>}
         <p className="mt-2 text-sm font-semibold">{scope.totalFound} de {scope.totalExpected} unidades nas PRODs · {scope.status === "completo" ? "escopo integral conciliado" : scope.match ? "peças coincidem; falta confirmar a origem vigente" : "peças ainda não conciliadas"}</p>
         <div className="mt-3 overflow-x-auto"><table className="w-full min-w-[400px] text-left text-sm"><thead><tr className="border-b"><th className="p-2">Item do contrato</th><th className="p-2">Código na PROD</th><th className="p-2">Esperado</th><th className="p-2">Encontrado</th></tr></thead><tbody>
           {scope.lines.map(line => <tr key={line.code} className="border-b"><td className="p-2">{line.code}</td><td className="p-2">{line.prodCode}</td><td className="p-2">{line.expected}</td><td className="p-2">{line.found}</td></tr>)}
         </tbody></table></div>
         {!!scope.extras.length && <p className="mt-2 text-sm text-amber-900">Itens nas PRODs fora da lista vigente: {scope.extras.map(item => `${item.code} (${item.quantity})`).join(", ")}.</p>}
         {revision.source_kind === "proposta" && scope.match && (access.isMaster || access.permissions["production.contracts.edit"]) &&
-          <ContractScopeConfirmation contractId={id} revisionId={revision.id} sourceReference={revision.source_reference}
+          <ContractScopeConfirmation contractId={id} revisionId={revision.id}
             sourceRevision={revision.source_revision} count={scope.totalExpected} />}
         {revision.source_kind === "proposta" && !scope.match && <p className="mt-3 rounded bg-amber-50 p-3 text-sm text-amber-900">Confira códigos, quantidades, peças importadas e liberação de cada PROD. Quando coincidirem, a confirmação do escopo vigente aparecerá aqui.</p>}
         {revisions.length > 1 && <p className="mt-2 text-xs text-muted-foreground">{revisions.length - 1} revisão(ões) anterior(es) preservada(s) no histórico.</p>}
