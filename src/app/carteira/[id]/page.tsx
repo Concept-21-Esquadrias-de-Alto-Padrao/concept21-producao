@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { ActionForm, Field, inputClass, textareaClass } from "@/components/action-form";
-import { registerContractScopeAction } from "@/app/actions";
+import { ContractScopePdfForm } from "@/components/contract-scope-pdf-form";
 import { LifecycleHistory } from "@/components/lifecycle-panel";
 import { PageHeader } from "@/components/page-header";
 import { getWorkPortfolioPageData } from "@/lib/data";
@@ -60,18 +59,9 @@ export default async function WorkDetail({ params }: { params: Promise<{ id: str
       <p className="mt-2 text-sm text-muted-foreground">Os desenhos permanecem na pasta do cliente no servidor. Uma proposta pode ser registrada como referência, mas não confirma o escopo integral vigente. Cada PDF de itens contém somente a respectiva PROD.</p>
     </section>
     {(access.isMaster || access.permissions["production.contracts.edit"]) && <section className="rounded-md border border-border bg-white p-4">
-      <h2 className="font-semibold">Registrar revisão da lista integral</h2>
-      <p className="mt-1 text-sm text-muted-foreground">Use a lista completa vigente do Técnico. Se houver desdobro ou troca de código, informe o código correspondente na PROD em cada linha. Uma nova revisão substitui a anterior para a comparação, sem apagar o histórico.</p>
-      <ActionForm action={registerContractScopeAction} submitLabel="Registrar revisão" className="mt-4">
-        <input type="hidden" name="contract_id" value={id} />
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Origem da lista"><select required className={inputClass} name="source_kind" defaultValue=""><option value="" disabled>Selecione a origem</option><option value="proposta">Proposta ou desenho (referência provisória)</option><option value="tecnico_integral">Lista integral vigente conferida no Técnico</option></select></Field>
-          <Field label="Identificação da revisão do documento (se houver)"><input className={inputClass} name="source_revision" maxLength={100} placeholder="Ex.: revisão 02" /></Field>
-        </div>
-        <Field label="Caminho da lista ou desenho na pasta do cliente"><input required className={inputClass} name="source_reference" maxLength={500} placeholder="X:\\Contratos em Produção\\Cliente - contrato\\Comercial\\..." /></Field>
-        <Field label="Itens integrais, uma linha por item"><textarea required className={textareaClass} name="items" rows={7} placeholder={"J01;1\nJ02;1\nP06;1\nP07;1\nCódigo diferente: ORIGINAL;1;CÓDIGO_NA_PROD"} /></Field>
-        <p className="text-xs text-muted-foreground">Formato: CÓDIGO;QUANTIDADE;CÓDIGO_NA_PROD (último campo opcional). Registre desdobros como linhas separadas da lista vigente.</p>
-      </ActionForm>
+      <h2 className="font-semibold">Ler revisão do desenho em PDF</h2>
+      <p className="mt-1 text-sm text-muted-foreground">O sistema extrai os códigos e quantidades e mostra a prévia antes de registrar. A proposta sozinha fica provisória; para declarar o escopo integral, confira a lista vigente no Técnico, incluindo revisões e desdobros.</p>
+      <ContractScopePdfForm contractId={id} />
     </section>}
     <section className="space-y-3">
       <h2 className="font-semibold">Liberações recebidas · {prods.length} PROD(s)</h2>
