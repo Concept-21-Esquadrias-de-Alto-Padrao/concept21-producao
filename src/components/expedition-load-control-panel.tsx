@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useActionState, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   completeExpeditionLoadControlAction,
   saveExpeditionLoadControlAction,
@@ -23,7 +24,6 @@ import { StatusBadge } from "@/components/badges";
 import { EmptyState } from "@/components/empty-state";
 import { SelectionToolbar } from "@/components/selection-toolbar";
 import { FloatingDialog } from "@/components/floating-dialog";
-import { RomaneioPdfButton } from "@/components/romaneio-pdf-button";
 import {
   buildExpeditionRomaneioReport,
   LOAD_CONTROL_ITEMS,
@@ -51,6 +51,7 @@ type ExpeditionLoadControlPanelProps = {
   stageRows: ProductionPieceStage[];
   openRows: ProductionPieceStage[];
   canPerform: boolean;
+  canViewProds: boolean;
   canRollback: boolean;
 };
 
@@ -110,6 +111,7 @@ export function ExpeditionLoadControlPanel({
   stageRows,
   openRows,
   canPerform,
+  canViewProds,
   canRollback,
 }: ExpeditionLoadControlPanelProps) {
   const router = useRouter();
@@ -353,7 +355,7 @@ export function ExpeditionLoadControlPanel({
                     </span>
                   </span>
                 </button>
-                {group.report ? <RomaneioPdfButton report={group.report} /> : null}
+                {canViewProds && group.report?.rows.length ? <Link href={`/prods/${group.prodId}#romaneios`} className="inline-flex min-h-10 items-center justify-center rounded-md bg-charcoal px-4 py-2 text-sm font-semibold text-white hover:bg-black">Emitir romaneio numerado</Link> : null}
               </div>
 
               {expanded ? (

@@ -35,6 +35,7 @@ export type ExpeditionRomaneioRow = {
 
 export type ExpeditionRomaneioReport = {
   title: string;
+  romaneioNumber?: string;
   generatedAt: string;
   client: string;
   contractNumber: string;
@@ -61,7 +62,7 @@ export function contractAddress(contract: ProductionContract) {
   return (
     accentDisplayText(contract.full_address ?? "").trim() ||
     compact([
-      contract.street ? `Rua ${contract.street}` : null,
+      contract.street,
       contract.block ? `Quadra ${contract.block}` : null,
       contract.lot ? `Lote ${contract.lot}` : null,
       contract.sector ? `Setor ${contract.sector}` : null,

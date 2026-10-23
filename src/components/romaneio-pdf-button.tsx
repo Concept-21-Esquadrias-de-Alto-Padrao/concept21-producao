@@ -36,7 +36,7 @@ export function RomaneioPdfButton({
         className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md bg-charcoal px-4 py-2 text-sm font-semibold text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-60"
       >
         {downloading ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
-        {downloading ? "Gerando PDF..." : "Gerar romaneio"}
+        {downloading ? "Gerando PDF..." : report.romaneioNumber ? "Baixar PDF" : "Gerar romaneio"}
       </button>
       {error ? <span className="text-xs font-medium text-red-600">{error}</span> : null}
       {!error && report.rows.length === 0 ? (

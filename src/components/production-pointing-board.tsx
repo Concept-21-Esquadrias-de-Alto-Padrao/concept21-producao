@@ -84,6 +84,7 @@ type PointingBoardProps = {
   indirectActivitySessions: ProductionIndirectActivitySession[];
   timeEntries: ProductionStageTimeEntry[];
   canPerform: boolean;
+  canViewProds: boolean;
   canArchiveExpedition: boolean;
   canRollback: boolean;
   canAdjustTime: boolean;
@@ -419,6 +420,7 @@ export function ProductionPointingBoard({
   indirectActivitySessions,
   timeEntries,
   canPerform,
+  canViewProds,
   canArchiveExpedition,
   canRollback,
   canAdjustTime,
@@ -952,6 +954,7 @@ export function ProductionPointingBoard({
           stageRows={stageRows}
           openRows={openRows}
           canPerform={canPerform}
+          canViewProds={canViewProds}
           canRollback={canRollback}
         />
         </>

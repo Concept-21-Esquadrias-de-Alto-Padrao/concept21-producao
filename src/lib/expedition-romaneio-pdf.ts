@@ -41,11 +41,15 @@ function drawPageHeader(doc: jsPDF, report: ExpeditionRomaneioReport) {
   doc.text("Romaneio de entrega de esquadrias", margin + 25, 19);
 
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(16);
-  doc.text(report.title.toUpperCase(), pageWidth - margin, 13, { align: "right" });
+  doc.setFontSize(12);
+  doc.text(report.title.toUpperCase(), pageWidth - margin, 11, { align: "right" });
+  if (report.romaneioNumber) {
+    doc.setFontSize(11);
+    doc.text(report.romaneioNumber, pageWidth - margin, 18, { align: "right" });
+  }
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
-  doc.text(`Emitido em ${report.generatedAt}`, pageWidth - margin, 20, { align: "right" });
+  doc.text(`Emitido em ${report.generatedAt}`, pageWidth - margin, report.romaneioNumber ? 24 : 20, { align: "right" });
 }
 
 function drawInfoCard(
@@ -259,7 +263,7 @@ export async function downloadExpeditionRomaneioPdf(report: ExpeditionRomaneioRe
   drawSummaryAndSignature(doc, report);
   drawPageNumbers(doc);
   doc.save(
-    `romaneio-${safeFileName(report.client)}-${safeFileName(report.contractNumber)}-prod-${safeFileName(
+    `romaneio-${report.romaneioNumber ? `${safeFileName(report.romaneioNumber)}-` : ""}${safeFileName(report.client)}-${safeFileName(report.contractNumber)}-prod-${safeFileName(
       report.prodNumber,
     )}.pdf`,
   );
