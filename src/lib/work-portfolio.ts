@@ -55,7 +55,8 @@ export function buildWorkPortfolio(snapshot: ProductionSnapshot, canSeeMaterials
             ? "confirmado" : "pendente";
     }
 
-    const progress: WorkPortfolioRow["progress"] = !prods.length ? "sem_prod"
+    const progress: WorkPortfolioRow["progress"] = lifecycleView(contract) === "concluidos" ? "concluido"
+      : !prods.length ? "sem_prod"
       : prods.every(prod => lifecycleView(prod) === "concluidos") ? "concluido"
         : !pieces.length ? "sem_itens"
           : prods.some(prod => ["em_producao", "embalagem", "expedicao"].includes(prod.status))
@@ -78,7 +79,7 @@ export function buildWorkPortfolio(snapshot: ProductionSnapshot, canSeeMaterials
 }
 
 export const workProgressLabels: Record<WorkPortfolioRow["progress"], string> = {
-  sem_prod: "Sem PROD cadastrada",
+  sem_prod: "Aguarda PROD",
   sem_itens: "PROD sem itens cadastrados",
   em_planejamento: "PRODs em planejamento",
   em_producao: "PRODs em execução",

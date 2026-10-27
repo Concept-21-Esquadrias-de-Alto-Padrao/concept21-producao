@@ -23,7 +23,7 @@ export default async function ContractDetail({ params }: { params: Promise<{ id:
   return <div className="space-y-6">
     <PageHeader title={`Contrato ${contract.contract_number}`} description={`${snapshot.clients.find(c => c.id === contract.client_id)?.name ?? ""} · ${contract.work_name}`} actions={<Link href="/contracts" className="underline">Voltar aos contratos</Link>} />
     <section className="space-y-3 rounded-md border border-border bg-white p-4">
-      <LifecycleBadge item={contract} />
+      <LifecycleBadge item={contract} waitingForProd={!snapshot.prods.some(p => p.contract_id === id)} />
       <p className="text-sm">Escopo técnico: {l?.scope_confirmed_at ? `conciliado em ${formatDateTime(l.scope_confirmed_at)}` : l?.historical_recorded_at ? "não conciliado pelo processo novo; conclusão declarada na conferência histórica" : "aguardando lista integral e conciliação com as PRODs"}.</p>
       <Link href={`/carteira/${id}`} className="text-sm font-semibold text-accent underline">Conferir itens do contrato e PRODs</Link>
       {l?.scope_evidence && <p className="text-sm">A conferência do escopo está registrada no histórico abaixo.</p>}
