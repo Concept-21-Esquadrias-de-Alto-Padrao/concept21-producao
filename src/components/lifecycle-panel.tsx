@@ -14,15 +14,17 @@ const commandLabels: Record<string, string> = {
   close_contract: "Encerrar contrato na Produção", reopen_contract: "Reabrir contrato",
   archive_prod: "Arquivar PROD", restore_prod: "Restaurar PROD",
   archive_contract: "Arquivar contrato", restore_contract: "Restaurar contrato",
+  reopen_historical_prod: "Reabrir PROD histórica",
 };
 const eventLabels: Record<string, string> = {
   ...commandLabels, prod_concluida: "PROD concluída automaticamente", prod_reaberta: "PROD reaberta",
   prod_cancelada: "PROD integralmente cancelada", contrato_reaberto: "Contrato reaberto",
   escopo_reaberto: "Confirmação de escopo invalidada", saida_invalidada: "Saída anterior invalidada",
+  conclusao_historica: "Conclusão histórica declarada", prod_historica_reaberta: "PROD histórica reaberta",
 };
 export function LifecycleBadge({ item }: { item: ProductionContract | ProductionProd }) {
   const view = lifecycleView(item);
-  return <span className={`inline-flex rounded-md px-2 py-1 text-xs font-semibold ${view === "concluidos" ? "bg-emerald-50 text-emerald-800" : view === "arquivados" ? "bg-zinc-100 text-zinc-700" : "bg-orange-50 text-orange-900"}`}>{lifecycleViewLabels[view]}</span>;
+  return <span className={`inline-flex rounded-md px-2 py-1 text-xs font-semibold ${view === "concluidos" ? "bg-emerald-50 text-emerald-800" : view === "arquivados" ? "bg-zinc-100 text-zinc-700" : "bg-orange-50 text-orange-900"}`}>{item.lifecycle?.historical_recorded_at ? "Concluído (histórico)" : lifecycleViewLabels[view]}</span>;
 }
 export function LifecycleCommand({ entity, command, pieces = [], description, romaneioNumbers = [] }: {
   entity: string; command: string; pieces?: ProductionPiece[]; description?: string; romaneioNumbers?: string[];
@@ -60,6 +62,7 @@ export function ProdLifecyclePanel({ prod, contract, pieces, permissions, isMast
 }) {
   const l = prod.lifecycle;
   const archived = Boolean(l?.archived_at || contract.lifecycle?.archived_at);
+  const historical = Boolean(l?.historical_recorded_at);
   const allowed = (key: string) => isMaster || permissions[key];
   return <section className="space-y-4 rounded-md border border-border bg-white p-4" aria-label="Situação da produção">
     <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="font-semibold">Conclusão na Produção</h2><LifecycleBadge item={prod} /></div>
@@ -68,16 +71,18 @@ export function ProdLifecyclePanel({ prod, contract, pieces, permissions, isMast
     </div>
     <p className="text-sm">Fabricação: {l?.manufacturing_state === "concluida" ? "Concluída" : l?.manufacturing_state === "em_andamento" ? "Em andamento" : "Não iniciada"} · Expedição: {l?.expedition_state === "total" ? "Totalmente expedida" : l?.expedition_state === "parcial" ? "Parcialmente expedida" : "Sem saída"}.</p>
     <p className="text-sm text-muted-foreground">Fabricação concluída: {formatDateTime(l?.manufactured_at)} · Conclusão na Produção: {formatDateTime(l?.completed_at)}.</p>
+    {historical && <p className="rounded bg-emerald-50 p-3 text-sm text-emerald-900">Conclusão histórica declarada por {l?.historical_declared_by} na conferência de {l?.historical_reviewed_on}. Registrada no sistema em {formatDateTime(l?.historical_recorded_at)}. {l?.historical_statement} Data real da entrega não informada; as quantidades expedidas abaixo se referem apenas ao controle novo.</p>}
     {(l?.blocker_count || l?.archived_stage_count) ? <p className="rounded bg-amber-50 p-3 text-sm text-amber-900">{l?.blocker_count ?? 0} impedimento(s) e {l?.archived_stage_count ?? 0} etapa(s) arquivada(s). Arquivamento não comprova execução nem permite concluir o escopo restante.</p> : null}
-    {!l?.completed_at && ["concluida", "cancelada"].includes(prod.legacy_status ?? "") && <p className="text-sm text-amber-800">O status antigo era “{prod.legacy_status}”. Ele não comprova a conclusão pelo novo processo.</p>}
+    {!historical && !l?.completed_at && ["concluida", "cancelada"].includes(prod.legacy_status ?? "") && <p className="text-sm text-amber-800">O status antigo era “{prod.legacy_status}”. Ele não comprova a conclusão pelo novo processo.</p>}
     {l?.archived_at && <p className="text-sm">Arquivada em {formatDateTime(l.archived_at)}. Motivo: {l.archive_reason}.</p>}
     <Link href={`/contracts/${contract.id}`} className="inline-block text-sm font-semibold text-accent underline">Consultar contrato e encerramento das liberações</Link>
-    {!archived && <div className="grid gap-3 lg:grid-cols-2">
+    {!archived && !historical && <div className="grid gap-3 lg:grid-cols-2">
       {allowed("production.shipping.manage") && <LifecycleCommand entity={prod.id} command="dispatch" pieces={pieces.filter(p => !p.disposition?.cancelled_at)} romaneioNumbers={romaneioNumbers} description="Concluir a carga ou gerar um romaneio não registra a saída. Fabricação, carga e impedimentos serão conferidos novamente ao confirmar." />}
       {allowed("production.pointing.rollback") && <LifecycleCommand entity={prod.id} command="return_dispatch" pieces={pieces} description="Invalida a saída vigente e reabre a PROD. Para refazer etapas, use também o retorno ou retrabalho da peça." />}
       {allowed("production.prods.manage_pieces") && <><LifecycleCommand entity={prod.id} command="cancel_pieces" pieces={pieces.filter(p => !p.disposition?.cancelled_at)} description="Cancelamento é uma destinação formal do escopo e não conta como produção. Informe a autorização no motivo." /><LifecycleCommand entity={prod.id} command="restore_pieces" pieces={pieces.filter(p => p.disposition?.cancelled_at)} /></>}
       {isMaster && !l?.completed_at && <LifecycleCommand entity={prod.id} command="archive_prod" description="Retira a PROD da rotina e a mantém na consulta administrativa. Pendências e apontamentos ativos impedem esta ação." />}
     </div>}
+    {historical && isMaster && !archived && <LifecycleCommand entity={prod.id} command="reopen_historical_prod" description="Reabre esta PROD para novo trabalho. A declaração anterior permanece no histórico e, se o contrato estiver concluído, será reaberto também." />}
     {isMaster && l?.archived_at && !contract.lifecycle?.archived_at && <LifecycleCommand entity={prod.id} command="restore_prod" description="Restaura o registro para conferência operacional, sem concluir peças arquivadas." />}
   </section>;
 }
@@ -87,7 +92,7 @@ export function LifecycleHistory({ events, profiles = [] }: { events: LifecycleE
     {!events.length && <p className="text-sm text-muted-foreground">Nenhum evento deste processo registrado.</p>}
     {events.map(event => <article key={event.id} className="rounded border border-border bg-white p-3 text-sm">
       <strong>{eventLabels[event.event] ?? event.event}</strong>
-      <p className="text-muted-foreground">{formatDateTime(event.occurred_at)} · {event.actor_id ? profiles.find(p => p.id === event.actor_id)?.name ?? "Usuário identificado no registro" : "Sistema"}</p>
+      <p className="text-muted-foreground">{formatDateTime(event.occurred_at)} · {event.actor_id ? profiles.find(p => p.id === event.actor_id)?.name ?? "Usuário identificado no registro" : "Sistema"}{event.event === "conclusao_historica" && typeof event.details?.declared_by === "string" ? ` · Declarado por ${event.details.declared_by} na conferência de ${event.details.reviewed_on}` : ""}</p>
       <p className="mt-1">{event.reason}</p>
     </article>)}
   </section>;

@@ -24,11 +24,12 @@ export default async function ContractDetail({ params }: { params: Promise<{ id:
     <PageHeader title={`Contrato ${contract.contract_number}`} description={`${snapshot.clients.find(c => c.id === contract.client_id)?.name ?? ""} · ${contract.work_name}`} actions={<Link href="/contracts" className="underline">Voltar aos contratos</Link>} />
     <section className="space-y-3 rounded-md border border-border bg-white p-4">
       <LifecycleBadge item={contract} />
-      <p className="text-sm">Escopo técnico: {l?.scope_confirmed_at ? `conciliado em ${formatDateTime(l.scope_confirmed_at)}` : "aguardando lista integral e conciliação com as PRODs"}.</p>
+      <p className="text-sm">Escopo técnico: {l?.scope_confirmed_at ? `conciliado em ${formatDateTime(l.scope_confirmed_at)}` : l?.historical_recorded_at ? "não conciliado pelo processo novo; conclusão declarada na conferência histórica" : "aguardando lista integral e conciliação com as PRODs"}.</p>
       <Link href={`/carteira/${id}`} className="text-sm font-semibold text-accent underline">Conferir itens do contrato e PRODs</Link>
       {l?.scope_evidence && <p className="text-sm">A conferência do escopo está registrada no histórico abaixo.</p>}
       <p className="text-sm">Encerramento na Produção: {formatDateTime(l?.completed_at)}.</p>
-      {!l?.scope_confirmed_at && allFinished && <p className="rounded bg-amber-50 p-3 text-sm text-amber-900">Lotes atuais concluídos — aguardando conciliação com a lista integral do Técnico.</p>}
+      {l?.historical_recorded_at && <p className="rounded bg-emerald-50 p-3 text-sm text-emerald-900">Conclusão histórica declarada por {l.historical_declared_by} na conferência de {l.historical_reviewed_on}. Registrada em {formatDateTime(l.historical_recorded_at)}. Data real da entrega não informada; esta declaração não comprova saídas no controle novo.</p>}
+      {!l?.scope_confirmed_at && !l?.historical_recorded_at && allFinished && <p className="rounded bg-amber-50 p-3 text-sm text-amber-900">Lotes atuais concluídos — aguardando conciliação com a lista integral do Técnico.</p>}
       {l?.archived_at && <p className="text-sm">Arquivado em {formatDateTime(l.archived_at)}. Motivo: {l.archive_reason}.</p>}
       <p className="text-sm text-muted-foreground">A conclusão deste contrato se refere à Produção. Instalação e entrega final ao cliente são acompanhadas em Obras.</p>
     </section>
@@ -38,8 +39,8 @@ export default async function ContractDetail({ params }: { params: Promise<{ id:
     </section>
     {!l?.archived_at && <div className="grid gap-3 lg:grid-cols-2">
       {l?.scope_confirmed_at && (access.isMaster || access.permissions["production.contracts.confirm_scope"]) && <LifecycleCommand entity={id} command="reopen_scope" description="Reabra a confirmação se encontrar uma divergência. Registre a lista integral revisada na carteira; a conciliação será recalculada automaticamente." />}
-      {(access.isMaster || access.permissions["production.contracts.close"]) && <LifecycleCommand entity={id} command={l?.completed_at ? "reopen_contract" : "close_contract"} description="O banco verificará novamente a confirmação técnica, todas as PRODs e os impedimentos antes de registrar o encerramento." />}
-      {access.isMaster && !l?.completed_at && <LifecycleCommand entity={id} command="archive_contract" description="Somente contratos cujas PRODs estejam individualmente arquivadas podem ser arquivados. Nada é movido para Concluídos." />}
+      {(access.isMaster || access.permissions["production.contracts.close"]) && <LifecycleCommand entity={id} command={l?.completed_at || l?.historical_recorded_at ? "reopen_contract" : "close_contract"} description="Ao reabrir, a declaração anterior permanece no histórico. Para concluir pelo processo novo, o banco verificará novamente o escopo e todas as PRODs." />}
+      {access.isMaster && !l?.completed_at && !l?.historical_recorded_at && <LifecycleCommand entity={id} command="archive_contract" description="Somente contratos cujas PRODs estejam individualmente arquivadas podem ser arquivados. Nada é movido para Concluídos." />}
     </div>}
     {access.isMaster && l?.archived_at && <LifecycleCommand entity={id} command="restore_contract" description="As PRODs permanecem arquivadas até sua restauração individual." />}
     <LifecycleHistory events={history.events} profiles={snapshot.profiles.map(p => ({id:p.id,name:p.name}))} />

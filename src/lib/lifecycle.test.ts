@@ -1,10 +1,19 @@
 import { describe, expect, it } from "vitest";
 import { demoSnapshot } from "./demo-data";
-import { completionInPeriod, isOfficiallyCompleted, lifecycleView, parseLifecycleView, type ProdLifecycle } from "./lifecycle";
+import { completionInPeriod, isOfficiallyCompleted, lifecycleRecordedAt, lifecycleView, parseLifecycleView, type ProdLifecycle } from "./lifecycle";
 import { operationalSnapshot, reportableSnapshot } from "./lifecycle-snapshot";
 import { getForecastVsDone, calculateDashboardMetrics } from "./production";
 import { prodSchema } from "./schemas";
 const completed: ProdLifecycle = { prod_id: "p", state: "concluida", manufacturing_state: "concluida", expedition_state: "total", total_quantity: 10, manufactured_quantity: 8, dispatched_quantity: 8, cancelled_quantity: 2, blocker_count: 0, archived_stage_count: 0, manufactured_at: "2026-10-20T15:00:00Z", completed_at: "2026-10-21T01:00:00Z", archived_at: null, archived_by: null, archive_reason: null };
+
+it("declaração histórica entra em Concluídos sem simular a conclusão operacional", () => {
+  const item = { lifecycle: { ...completed, state: "em_andamento" as const, completed_at: null, historical_recorded_at: "2026-10-27T14:00:00Z" } };
+  expect(lifecycleView(item)).toBe("concluidos");
+  expect(isOfficiallyCompleted(item)).toBe(false);
+  expect(lifecycleRecordedAt(item)).toBe("2026-10-27T14:00:00Z");
+  expect(item.lifecycle.state).toBe("em_andamento");
+  expect(item.lifecycle.completed_at).toBeNull();
+});
 describe("official production lifecycle", () => {
   it("legacy status and dates alone never enter completed history", () => {
     const prod = { ...demoSnapshot.prods[0], status: "concluida" as const, actual_end_date: "2020-01-01" };

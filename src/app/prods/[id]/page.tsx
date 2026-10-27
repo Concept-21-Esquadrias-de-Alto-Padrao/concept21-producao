@@ -210,8 +210,8 @@ export default async function ProdDetailPage({
               pieceReworks={snapshot.pieceReworks}
               serverNowIso={serverNowIso}
               profiles={snapshot.profiles}
-              isMaster={Boolean(access.isMaster && !prod.lifecycle?.archived_at && !context.contract.lifecycle?.archived_at)}
-              permissions={prod.lifecycle?.archived_at || context.contract.lifecycle?.archived_at ? {} : access.permissions}
+              isMaster={Boolean(access.isMaster && !prod.lifecycle?.archived_at && !context.contract.lifecycle?.archived_at && !prod.lifecycle?.historical_recorded_at)}
+              permissions={prod.lifecycle?.archived_at || context.contract.lifecycle?.archived_at || prod.lifecycle?.historical_recorded_at ? {} : access.permissions}
             />
           </PanelBody>
         </Panel>
@@ -247,7 +247,7 @@ export default async function ProdDetailPage({
       <ProdRomaneiosPanel
         prodId={prod.id}
         romaneios={(romaneios ?? []) as IssuedRomaneio[]}
-        canIssue={!prod.lifecycle?.archived_at && !context.contract.lifecycle?.archived_at &&
+        canIssue={!prod.lifecycle?.archived_at && !context.contract.lifecycle?.archived_at && !prod.lifecycle?.historical_recorded_at &&
           (access.isMaster || Boolean(access.permissions["production.pointing.perform"] || access.permissions["production.shipping.manage"]))}
         pendingPieces={pendingRomaneioPieces}
       />

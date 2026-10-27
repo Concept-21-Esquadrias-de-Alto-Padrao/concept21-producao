@@ -1,5 +1,5 @@
 import { LifecycleTabs } from "@/components/lifecycle-tabs";
-import { parseLifecycleView, lifecycleView, completionInPeriod } from "@/lib/lifecycle";
+import { parseLifecycleView, lifecycleView, completionInPeriod, lifecycleRecordedAt } from "@/lib/lifecycle";
 import { ClipboardList } from "lucide-react";
 import { redirect } from "next/navigation";
 import { ActionForm, Field, inputClass, textareaClass } from "@/components/action-form";
@@ -33,7 +33,7 @@ export default async function ContractsPage({ searchParams }: { searchParams: Pr
   }
 
   const snapshot = await getContractsPageData();
-  const filtered = snapshot.contracts.filter(c => lifecycleView(c) === view && completionInPeriod(c.lifecycle?.completed_at, params.from, params.to));
+  const filtered = snapshot.contracts.filter(c => lifecycleView(c) === view && completionInPeriod(lifecycleRecordedAt(c), params.from, params.to));
   const canCreateContracts = view === "em_andamento" && (
     access.isMaster || access.permissions["production.contracts.create"]);
   const canEditContracts = access.isMaster || access.permissions["production.contracts.edit"];
@@ -48,8 +48,8 @@ export default async function ContractsPage({ searchParams }: { searchParams: Pr
       <LifecycleTabs path="/contracts" view={view} showArchives={access.isMaster} />
       {view === "concluidos" && <form className="flex flex-wrap items-end gap-3">
         <input type="hidden" name="view" value={view} />
-        <Field label="Conclusão a partir de"><input type="date" className={inputClass} name="from" defaultValue={params.from} /></Field>
-        <Field label="Conclusão até"><input type="date" className={inputClass} name="to" defaultValue={params.to} /></Field>
+        <Field label="Registro da conclusão a partir de"><input type="date" className={inputClass} name="from" defaultValue={params.from} /></Field>
+        <Field label="Registro da conclusão até"><input type="date" className={inputClass} name="to" defaultValue={params.to} /></Field>
         <button className="min-h-11 rounded bg-charcoal px-4 text-white">Filtrar período</button>
       </form>}
       <div className={canCreateContracts ? "grid gap-4 xl:grid-cols-[0.9fr_1.1fr]" : "space-y-4"}>

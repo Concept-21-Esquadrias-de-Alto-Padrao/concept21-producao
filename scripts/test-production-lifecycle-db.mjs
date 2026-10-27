@@ -270,5 +270,39 @@ try {
  await assert.rejects(confirm(),/lista do contrato mudou/);
  ok('Existing four-piece proposal is attested once, atomically reconciled and protected from stale or divergent data');
  await db.exec('reset role');
+ await db.exec(await readFile(new URL('../supabase/migrations/20261027150000_historical_production_closure.sql',import.meta.url),'utf8'));
+ const historicalContract=id(401), historicalProd=id(402), historicalPiece=id(403), historicalNewProd=id(404);
+ await db.exec(`insert into production_contracts(id,company_id,client_id,contract_number,work_name,full_address,city,state)
+ values('${historicalContract}','${company}','${client}','OLD-1','Obra antiga','Rua fictícia','Goiânia','GO');
+ insert into production_prods(id,company_id,contract_id,prod_number) values('${historicalProd}','${company}','${historicalContract}',1);
+ insert into production_prod_pieces(id,company_id,prod_id,piece_code,quantity,released_to_production)
+ values('${historicalPiece}','${company}','${historicalProd}','P1',1,true);
+ insert into production_contract_lifecycle(contract_id,company_id) values('${historicalContract}','${company}') on conflict do nothing;
+ update production_prod_lifecycle set historical_recorded_at=now(),historical_reviewed_on='2026-10-27',historical_declared_by='Gestor fictício',historical_statement='Concluída e entregue, revisão histórica.' where prod_id='${historicalProd}';
+ update production_contract_lifecycle set historical_recorded_at=now(),historical_reviewed_on='2026-10-27',historical_declared_by='Gestor fictício',historical_statement='Concluída e entregue, revisão histórica.' where contract_id='${historicalContract}';`);
+ assert.equal((await one(`select state,completed_at from production_prod_lifecycle where prod_id='${historicalProd}'`)).completed_at,null);
+ await reject(`update production_prod_pieces set quantity=2 where id='${historicalPiece}'`,/histórica/);
+ await db.exec('set role service_role');
+ await assert.rejects(command('archive_prod',historicalProd),/histórica/);
+ await reject(`insert into production_pointing_sessions(company_id,prod_ids,stage_id,operator_id,action) values('${company}',array['${historicalProd}']::uuid[],'${id(105)}','${id(999)}','iniciar')`,/historicamente/);
+ await assert.rejects(db.query('select production_reopen_historical_prod($1,$2,$3)',[otherActor,historicalProd,'Nova peça']),/não encontrada|sem conclusão|Administrador|empresa/);
+ ok('Historical completion stays distinct from physical dispatch and blocks edits/archives');
+ await db.exec(`insert into production_prods(id,company_id,contract_id,prod_number) values('${historicalNewProd}','${company}','${historicalContract}',2)`);
+ assert.equal((await one(`select historical_recorded_at from production_contract_lifecycle where contract_id='${historicalContract}'`)).historical_recorded_at,null);
+ assert((await one(`select historical_recorded_at from production_prod_lifecycle where prod_id='${historicalProd}'`)).historical_recorded_at);
+ ok('New PROD automatically reopens historical contract and retains old PROD history');
+ await db.query('select production_reopen_historical_prod($1,$2,$3)',[actor,historicalProd,'Nova peça solicitada']);
+ assert.equal((await one(`select historical_recorded_at from production_prod_lifecycle where prod_id='${historicalProd}'`)).historical_recorded_at,null);
+ await db.exec(`update production_prod_pieces set quantity=2 where id='${historicalPiece}'`);
+ ok('Master can reopen a historical PROD without inventing dispatch');
+ await db.exec('reset role');
+ const noProdContract=id(405),noProdNew=id(406);
+ await db.exec(`insert into production_contracts(id,company_id,client_id,contract_number,work_name,full_address,city,state)
+ values('${noProdContract}','${company}','${client}','OLD-2','Obra antiga sem PROD','Rua fictícia','Goiânia','GO');
+ insert into production_contract_lifecycle(contract_id,company_id,historical_recorded_at,historical_reviewed_on,historical_declared_by,historical_statement)
+ values('${noProdContract}','${company}',now(),'2026-10-27','Gestor fictício','Concluída e entregue, revisão histórica.');
+ insert into production_prods(id,company_id,contract_id,prod_number) values('${noProdNew}','${company}','${noProdContract}',1);`);
+ assert.equal((await one(`select historical_recorded_at from production_contract_lifecycle where contract_id='${noProdContract}'`)).historical_recorded_at,null);
+ ok('Historical no-PROD contract reopens on first new PROD');
  console.log(`${checks.length} SQL scenarios passed:\n`+checks.map(c=>'PASS '+c).join('\n'));
 } catch(error) { console.error("FAIL",error.message,error.code ?? "", error.where ?? ""); process.exitCode=1; } finally {await db.close();}

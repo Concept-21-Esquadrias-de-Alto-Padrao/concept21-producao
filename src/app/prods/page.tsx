@@ -1,5 +1,5 @@
 import { LifecycleTabs } from "@/components/lifecycle-tabs";
-import { lifecycleView, parseLifecycleView, completionInPeriod } from "@/lib/lifecycle";
+import { lifecycleView, parseLifecycleView, completionInPeriod, lifecycleRecordedAt } from "@/lib/lifecycle";
 import { isProdStatusSelectable } from "@/lib/transport-module";
 import { Factory, Plus } from "lucide-react";
 import Link from "next/link";
@@ -78,7 +78,7 @@ export default async function ProdsPage({
     .filter((context): context is NonNullable<typeof context> => Boolean(context));
   const filteredContexts = contexts
     .filter(context => lifecycleView(context.prod) === view)
-    .filter(context => completionInPeriod(context.prod.lifecycle?.completed_at, params.from, params.to))
+    .filter(context => completionInPeriod(lifecycleRecordedAt(context.prod), params.from, params.to))
     .filter((context) => !params.stage || context.prod.current_stage_id === params.stage)
     .filter((context) => !params.status || context.prod.status === params.status)
     .filter((context) => {
@@ -215,8 +215,8 @@ export default async function ProdsPage({
               <form className="contents">
                 <input type="hidden" name="view" value={view} />
                 {view === "concluidos" && <div className="grid gap-3 sm:grid-cols-2">
-                  <Field label="Conclusão a partir de"><input className={inputClass} type="date" name="from" defaultValue={params.from} /></Field>
-                  <Field label="Conclusão até"><input className={inputClass} type="date" name="to" defaultValue={params.to} /></Field>
+                  <Field label="Registro da conclusão a partir de"><input className={inputClass} type="date" name="from" defaultValue={params.from} /></Field>
+                  <Field label="Registro da conclusão até"><input className={inputClass} type="date" name="to" defaultValue={params.to} /></Field>
                 </div>}
                 <div className="grid gap-3 md:grid-cols-3">
                   <Field label="Cliente ou obra">

@@ -15,6 +15,10 @@ export type ProdLifecycle = {
   archived_stage_count: number;
   manufactured_at: string | null;
   completed_at: string | null;
+  historical_recorded_at?: string | null;
+  historical_reviewed_on?: string | null;
+  historical_declared_by?: string | null;
+  historical_statement?: string | null;
   archived_at: string | null;
   archived_by: string | null;
   archive_reason: string | null;
@@ -26,6 +30,10 @@ export type ContractLifecycle = {
   scope_evidence: string | null;
   completed_at: string | null;
   completed_by: string | null;
+  historical_recorded_at?: string | null;
+  historical_reviewed_on?: string | null;
+  historical_declared_by?: string | null;
+  historical_statement?: string | null;
   archived_at: string | null;
   archived_by: string | null;
   archive_reason: string | null;
@@ -45,12 +53,12 @@ export type LifecycleEvent = {
 export function lifecycleView(item: { lifecycle?: ProdLifecycle | ContractLifecycle | null }): LifecycleView {
   const state = item.lifecycle;
   if (state?.archived_at) return "arquivados";
-  if (state?.completed_at) return "concluidos";
+  if (state?.completed_at || state?.historical_recorded_at) return "concluidos";
   if (state && "state" in state && state.state === "cancelada") return "cancelados";
   return "em_andamento";
 }
 export function isOfficiallyCompleted(item: { lifecycle?: ProdLifecycle | ContractLifecycle | null }) {
-  return lifecycleView(item) === "concluidos";
+  return Boolean(item.lifecycle?.completed_at) && !item.lifecycle?.archived_at;
 }
 export function isOperationalProd(prod: ProductionProd, contracts: ProductionContract[] = []) {
   return lifecycleView(prod) === "em_andamento" && !contracts.find(c => c.id === prod.contract_id)?.lifecycle?.archived_at;
@@ -60,6 +68,9 @@ export function completionInPeriod(at: string | null | undefined, start?: string
   if (!at) return false;
   const date = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(at));
   return (!start || date >= start) && (!end || date <= end);
+}
+export function lifecycleRecordedAt(item: { lifecycle?: ProdLifecycle | ContractLifecycle | null }) {
+  return item.lifecycle?.completed_at ?? item.lifecycle?.historical_recorded_at ?? null;
 }
 export const lifecycleViewLabels: Record<LifecycleView, string> = {
   em_andamento: "Em andamento", concluidos: "Concluídos", cancelados: "Cancelados", arquivados: "Arquivados",
