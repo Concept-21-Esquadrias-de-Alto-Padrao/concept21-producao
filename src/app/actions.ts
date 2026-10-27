@@ -1500,7 +1500,7 @@ export async function updateProdAction(_: ActionState, formData: FormData) {
   const transportError = await validateProdTransportSelection(context, parsedValues, id);
   if (transportError) return transportError;
   if (parsedValues.status === "pausada") {
-    const { count, error: stageError } = await context.supabase
+    const { count, error: stageError } = await getSupabaseAdminClient()
       .from("production_prod_piece_stages")
       .select("id", { count: "exact", head: true })
       .eq("company_id", context.companyId)
