@@ -480,7 +480,7 @@ export function getMaterialSituation(snapshot: ProductionSnapshot) {
 
 export function getForecastVsDone(snapshot: ProductionSnapshot) {
   const buckets = new Map<string, { label: string; previstas: number; concluidas: number }>();
-  for (const prod of snapshot.prods.filter(p => !["arquivados", "cancelados"].includes(lifecycleView(p)))) {
+  for (const prod of snapshot.prods.filter(p => !p.lifecycle?.historical_recorded_at && !["arquivados", "cancelados"].includes(lifecycleView(p)))) {
     const planned = prod.planned_end_date?.slice(0, 7) ?? "sem-data";
     const current = buckets.get(planned) ?? {
       label: planned === "sem-data" ? "Sem data" : planned,
