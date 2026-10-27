@@ -1,7 +1,7 @@
 "use client";
 
 import { LifecycleBadge } from "./lifecycle-panel";
-import { isProdStatusSelectable } from "@/lib/transport-module";
+import { MANUAL_PROD_STATUSES } from "@/lib/prod-progress";
 
 import { ActionFeedback } from "@/components/floating-feedback";
 
@@ -16,7 +16,6 @@ import { ProdIdentity } from "@/components/prod-identity";
 import { priorityLabels, prodStatusLabels } from "@/lib/labels";
 import {
   PRIORITIES,
-  PROD_STATUSES,
   type ProdMaterial,
   type ProductionContract,
   type ProductionStage,
@@ -170,13 +169,20 @@ function ProdEditForm({
           </select>
         </Field>
         <Field label="Status geral">
-          <select name="status" className={inputClass} defaultValue={["concluida", "cancelada"].includes(context.prod.status) ? "em_producao" : context.prod.status}>
-            {PROD_STATUSES.filter((status) => !["concluida", "cancelada"].includes(status) && (isProdStatusSelectable(status) || status === context.prod.status)).map((status) => (
-              <option key={status} value={status}>
-                {prodStatusLabels[status]}
-              </option>
-            ))}
-          </select>
+          {context.prod.status_origin !== "manual" ? (
+            <>
+              <output className="block rounded-md border border-border bg-muted px-3 py-2 text-sm">{prodStatusLabels[context.prod.status]} · {context.prod.status_origin === "automatico" ? "calculado pelos apontamentos" : "registro anterior"}</output>
+              {context.prod.status_origin !== "historico" && <label className="mt-2 flex items-center gap-2 text-sm"><input type="checkbox" name="pause_prod" value="yes" />Pausar a PROD inteira (exige motivo e apontamentos parados)</label>}
+            </>
+          ) : (
+            <select name="status" className={inputClass} defaultValue={context.prod.status}>
+              {MANUAL_PROD_STATUSES.map((status) => (
+                <option key={status} value={status}>
+                  {prodStatusLabels[status]}
+                </option>
+              ))}
+            </select>
+          )}
         </Field>
       </div>
 
@@ -187,7 +193,7 @@ function ProdEditForm({
           defaultValue={context.prod.description ?? ""}
         />
       </Field>
-      <Field label="Observações">
+      <Field label="Observações (motivo obrigatório ao pausar a PROD)">
         <textarea name="notes" className={textareaClass} defaultValue={context.prod.notes ?? ""} />
       </Field>
 

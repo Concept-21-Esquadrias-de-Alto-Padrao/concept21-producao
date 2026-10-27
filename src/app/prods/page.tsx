@@ -1,6 +1,6 @@
 import { LifecycleTabs } from "@/components/lifecycle-tabs";
 import { lifecycleView, parseLifecycleView, completionInPeriod, lifecycleRecordedAt } from "@/lib/lifecycle";
-import { isProdStatusSelectable } from "@/lib/transport-module";
+import { MANUAL_PROD_STATUSES } from "@/lib/prod-progress";
 import { Factory, Plus } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -186,7 +186,7 @@ export default async function ProdsPage({
                   </Field>
                   <Field label="Status geral">
                     <select name="status" className={inputClass} defaultValue="planejamento">
-                      {PROD_STATUSES.filter(status => isProdStatusSelectable(status) && !["concluida", "cancelada"].includes(status)).map((status) => (
+                      {MANUAL_PROD_STATUSES.map((status) => (
                         <option key={status} value={status}>
                           {prodStatusLabels[status]}
                         </option>
@@ -197,7 +197,7 @@ export default async function ProdsPage({
                 <Field label="Descrição">
                   <textarea name="description" className={textareaClass} />
                 </Field>
-                <Field label="Observações">
+                  <Field label="Observações (motivo obrigatório ao pausar a PROD)">
                   <textarea name="notes" className={textareaClass} />
                 </Field>
               </ActionForm>

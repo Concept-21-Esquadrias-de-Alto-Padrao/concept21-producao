@@ -45,6 +45,7 @@ import { hasActiveMasterRole } from "./server-access";
 import { getSupabaseAdminClient } from "./supabase/admin";
 import { createSupabaseServerClient, hasSupabaseEnv } from "./supabase/server";
 import { accentDisplayText } from "./utils";
+import { deriveProdStatus } from "./prod-progress";
 
 type DbProdOverview = ProductionProd & {
   contract: ProductionContract & { client: Client };
@@ -987,6 +988,11 @@ async function loadProductionSnapshot(
       queries[index].apply(snapshot, result.data ?? []);
     });
 
+    if (include.prodPieces && include.prodPieceStages && include.stages) {
+      snapshot.prods = snapshot.prods.map(prod => ({
+        ...prod, ...deriveProdStatus(prod, snapshot.prodPieces, snapshot.prodPieceStages, snapshot.stages),
+      }));
+    }
     return isolateTransportSnapshot(snapshot);
   } catch (error) {
     console.error("Falha ao carregar dados protegidos do Supabase", error);
@@ -1009,13 +1015,13 @@ export async function getContractsPageData() {
 export async function getWorkPortfolioPageData(canSeeMaterials: boolean) {
   return loadProductionSnapshot(includeKeys([
     "clients", "contracts", "prods", "profiles", "prodPieces", "prodPieceImports", "contractScopeRevisions",
-    "stages", ...(canSeeMaterials ? ["prodMaterials" as const] : []),
+    "stages", "prodPieceStages", ...(canSeeMaterials ? ["prodMaterials" as const] : []),
   ]));
 }
 
 export async function getProdsPageData() {
   return loadProductionSnapshot(
-    includeKeys(["clients", "contracts", "profiles", "stages", "prods", "prodMaterials"]),
+    includeKeys(["clients", "contracts", "profiles", "stages", "prods", "prodMaterials", "prodPieces", "prodPieceStages"]),
   );
 }
 

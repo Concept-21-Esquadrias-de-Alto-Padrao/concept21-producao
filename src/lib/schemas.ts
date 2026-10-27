@@ -1,11 +1,11 @@
 import { z } from "zod";
 import { isBrazilianStateCode } from "./brazil-locations";
+import { MANUAL_PROD_STATUSES } from "./prod-progress";
 import {
   EXTRA_SERVICE_STATUSES,
   MATERIAL_CONFIRMATION_STATUSES,
   MATERIAL_FORECAST_STATUSES,
   PRIORITIES,
-  PROD_STATUSES,
   ROUTE_EXECUTION_TYPES,
   STAGE_STATUSES,
   STOP_TYPES,
@@ -100,7 +100,7 @@ export const prodSchema = z.object({
   actual_start_date: optionalText,
   actual_end_date: optionalText,
   current_stage_id: optionalUuid,
-  status: z.enum(PROD_STATUSES).refine(value => !["concluida", "cancelada"].includes(value), "Conclusão e cancelamento são calculados pelo escopo das peças.").default("planejamento"),
+  status: z.enum(MANUAL_PROD_STATUSES).default("planejamento"),
   notes: optionalText,
   external_source: optionalText,
   external_id: optionalText,
@@ -108,6 +108,7 @@ export const prodSchema = z.object({
 
 export const prodUpdateSchema = prodSchema.extend({
   id: z.string().uuid("PROD inválida"),
+  status: z.enum(MANUAL_PROD_STATUSES).optional(),
 });
 
 export const prodStageUpdateSchema = z.object({

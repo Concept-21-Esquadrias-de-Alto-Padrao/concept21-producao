@@ -1413,7 +1413,7 @@ export async function updateContractAction(_: ActionState, formData: FormData) {
 
 async function validateProdTransportSelection(
   context: Extract<ActionContext, { ok: true }>,
-  values: { current_stage_id?: string | null; status: string },
+  values: { current_stage_id?: string | null; status?: string },
   prodId?: string,
 ): Promise<ActionState | null> {
   if (TRANSPORT_ENABLED) return null;
@@ -1455,6 +1455,9 @@ export async function createProdAction(_: ActionState, formData: FormData) {
     return { ok: false, message: parsed.error.issues[0]?.message ?? "Dados inválidos" };
   }
 
+  if (parsed.data.status === "pausada" && (!parsed.data.notes || parsed.data.notes.trim().length < 3)) {
+    return { ok: false, message: "Informe nas observações o motivo da pausa da PROD." };
+  }
   const transportError = await validateProdTransportSelection(context, parsed.data);
   if (transportError) return transportError;
 
@@ -1484,14 +1487,28 @@ export async function updateProdAction(_: ActionState, formData: FormData) {
 
   if (permissionError) return permissionError;
 
+  if (formData.get("pause_prod") === "yes") formData.set("status", "pausada");
   const parsed = prodUpdateSchema.safeParse(formDataToObject(formData));
   if (!parsed.success) {
     return { ok: false, message: parsed.error.issues[0]?.message ?? "Dados inválidos" };
   }
 
+  if (parsed.data.status === "pausada" && (!parsed.data.notes || parsed.data.notes.trim().length < 3)) {
+    return { ok: false, message: "Informe nas observações o motivo da pausa da PROD." };
+  }
   const { id, ...parsedValues } = parsed.data;
   const transportError = await validateProdTransportSelection(context, parsedValues, id);
   if (transportError) return transportError;
+  if (parsedValues.status === "pausada") {
+    const { count, error: stageError } = await getSupabaseAdminClient()
+      .from("production_prod_piece_stages")
+      .select("id", { count: "exact", head: true })
+      .eq("company_id", context.companyId)
+      .eq("prod_id", id)
+      .eq("status", "em_andamento");
+    if (stageError) return { ok: false, message: toUserFriendlyErrorMessage(stageError) };
+    if (count) return { ok: false, message: "Pause os apontamentos ativos antes de pausar a PROD inteira." };
+  }
 
   const { actual_end_date: ignoredCompletionDate, ...editableValues } = parsedValues;
   void ignoredCompletionDate;

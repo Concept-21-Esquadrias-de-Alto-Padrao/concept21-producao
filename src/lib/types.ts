@@ -301,6 +301,7 @@ export type ProductionStage = {
 export type ProductionProd = {
   lifecycle?: import("./lifecycle").ProdLifecycle | null;
   legacy_status?: string;
+  status_origin?: "automatico" | "manual" | "legado" | "historico";
   id: string;
   contract_id: string;
   prod_number: number;
