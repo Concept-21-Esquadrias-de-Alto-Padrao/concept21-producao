@@ -39,6 +39,12 @@ describe("carteira de obras", () => {
     expect(buildWorkPortfolio(snapshot(), false)[0].materialState).toBe("indisponivel");
   });
 
+  it("mostra como concluído o contrato histórico sem PROD, sem fazê-lo aguardar uma nova PROD", () => {
+    const data = snapshot();
+    data.contracts[1].lifecycle = { historical_recorded_at: "2026-10-27T14:30:00Z" } as NonNullable<typeof data.contracts[1]["lifecycle"]>;
+    expect(buildWorkPortfolio(data, false)[1].progress).toBe("concluido");
+  });
+
   it("filtra o prazo na data do planejamento, com trinta dias inclusivos", () => {
     expect(planningDeadline(null, "2026-10-22")).toBe("sem_data");
     expect(planningDeadline("2026-10-21", "2026-10-22")).toBe("vencido");
