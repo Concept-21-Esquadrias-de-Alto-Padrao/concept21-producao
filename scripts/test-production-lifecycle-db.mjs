@@ -284,6 +284,7 @@ try {
  await reject(`update production_prod_pieces set quantity=2 where id='${historicalPiece}'`,/histórica/);
  await db.exec('set role service_role');
  await assert.rejects(command('archive_prod',historicalProd),/histórica/);
+ await reject(`insert into production_pointing_sessions(company_id,prod_ids,stage_id,operator_id,action) values('${company}',array['${historicalProd}']::uuid[],'${id(105)}','${id(999)}','iniciar')`,/historicamente/);
  await assert.rejects(db.query('select production_reopen_historical_prod($1,$2,$3)',[otherActor,historicalProd,'Nova peça']),/não encontrada|sem conclusão|Administrador|empresa/);
  ok('Historical completion stays distinct from physical dispatch and blocks edits/archives');
  await db.exec(`insert into production_prods(id,company_id,contract_id,prod_number) values('${historicalNewProd}','${company}','${historicalContract}',2)`);

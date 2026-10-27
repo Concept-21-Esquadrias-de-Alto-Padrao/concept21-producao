@@ -73,6 +73,15 @@ try {
   assert.match((await db.query('select number from production_romaneios where id=$1', [second])).rows[0].number, /^ROM-\d{4}-000002$/);
   await assert.rejects(issue([row1], report1, id(99)), /Perfil ativo obrigatório/);
   assert.equal((await db.query('select count(*)::int n from production_romaneio_items')).rows[0].n, 2);
+  await db.exec(`alter table production_prod_lifecycle add column historical_recorded_at timestamptz;
+    insert into production_prod_lifecycle(prod_id,historical_recorded_at) values('${prod}',now());
+    insert into production_prod_pieces values('${id(11)}','${company}','${prod}',1);
+    insert into production_prod_piece_stages values('${id(12)}','${company}','${prod}','${id(11)}','${stage}',1);`);
+  const closureMigration = await migration('20261027150000_historical_production_closure.sql');
+  const issueFunction = closureMigration.match(/create or replace function public\.production_romaneio_issue\([\s\S]*?end \$\$;/)?.[0];
+  assert(issueFunction);
+  await db.exec(issueFunction);
+  await assert.rejects(issue([id(12)], JSON.stringify({ rows: [{}], totalVolumes: 1, totalItems: 1 })), /historicamente/);
   console.log('PASS: logradouro antigo corrigido; duas emissões sequenciais e estáveis; duplicidade, dados divergentes e ator inválido rejeitados.');
 } finally {
   await db.close();

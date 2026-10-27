@@ -149,6 +149,97 @@ begin
  return jsonb_build_object('ok',true,'prod_id',prod,'contract_id',contract);
 end $$;
 
+create or replace function production_lifecycle_private.protect_session()
+returns trigger language plpgsql security definer set search_path='' as $$
+begin
+ perform pg_advisory_xact_lock(hashtextextended(new.company_id::text,721));
+ if exists(select 1 from unnest(new.prod_ids) x where not exists(select 1 from public.production_prods p where p.id=x and p.company_id=new.company_id)) then raise exception 'Sessão com PROD fora da empresa.'; end if;
+ if exists(select 1 from public.production_prod_lifecycle l where l.prod_id=any(new.prod_ids) and (l.archived_at is not null or l.state='cancelada' or l.historical_recorded_at is not null)) then raise exception 'A sessão contém PROD arquivada, cancelada ou concluída historicamente.'; end if;
+ return new;
+end $$;
+
+create or replace function public.production_romaneio_issue(
+  p_actor uuid, p_prod uuid, p_piece_stage_ids uuid[], p_report jsonb
+)
+returns uuid language plpgsql security invoker set search_path = '' as $$
+declare
+  actor public.profiles;
+  company uuid;
+  item_count integer;
+  expected_volumes integer;
+  expected_items integer;
+  next_number integer;
+  current_year integer;
+  document_number text;
+  document_id uuid;
+  master boolean;
+begin
+  select * into actor from public.profiles where id = p_actor and status = 'active';
+  if not found then raise exception 'Perfil ativo obrigatório.'; end if;
+  company := actor.company_id;
+  master := actor.is_master or exists(
+    select 1 from public.user_roles ur join public.roles r on r.id = ur.role_id
+    where ur.profile_id = actor.id and ur.company_id = company and r.company_id = company
+      and r.active and r.is_master_role
+  );
+  if not master and not exists(
+    select 1 from public.user_roles ur join public.roles r on r.id = ur.role_id
+      join public.role_permissions rp on rp.role_id = r.id
+      join public.permissions pm on pm.id = rp.permission_id
+    where ur.profile_id = actor.id and ur.company_id = company and r.company_id = company
+      and rp.company_id = company and r.active
+      and pm.key in ('production.pointing.perform', 'production.shipping.manage')
+  ) then raise exception 'Sem permissão para emitir romaneio.'; end if;
+  perform pg_advisory_xact_lock(hashtextextended(company::text, 721));
+  if not exists(
+    select 1 from public.production_prods p
+      join public.production_contracts c on c.id = p.contract_id and c.company_id = company
+      left join public.production_prod_lifecycle pl on pl.prod_id = p.id
+      left join public.production_contract_lifecycle cl on cl.contract_id = c.id
+    where p.id = p_prod and p.company_id = company and pl.archived_at is null and pl.historical_recorded_at is null and cl.archived_at is null
+  ) then raise exception 'PROD não encontrada, arquivada ou concluída historicamente.'; end if;
+  if coalesce(cardinality(p_piece_stage_ids), 0) not between 1 and 500
+     or array_position(p_piece_stage_ids, null) is not null
+     or cardinality(p_piece_stage_ids) <> (select count(distinct id) from unnest(p_piece_stage_ids) id)
+  then raise exception 'Selecione de 1 a 500 peças distintas.'; end if;
+  if jsonb_typeof(p_report) is distinct from 'object' or jsonb_typeof(p_report->'rows') is distinct from 'array'
+  then raise exception 'Dados do romaneio inválidos.'; end if;
+
+  -- A single lock serializes both yearly numbering and assignment of pieces.
+  current_year := extract(year from now() at time zone 'America/Sao_Paulo')::integer;
+  perform pg_advisory_xact_lock(hashtextextended(company::text || ':' || current_year::text, 8821));
+  perform 1 from public.production_prod_piece_stages ps where ps.id = any(p_piece_stage_ids) order by ps.id for update;
+
+  select count(*)::integer, coalesce(sum(ps.load_volume_count), 0)::integer,
+         coalesce(sum(piece.quantity), 0)::integer
+    into item_count, expected_volumes, expected_items
+  from public.production_prod_piece_stages ps
+    join public.production_stages s on s.id = ps.stage_id and s.company_id = company and s.sort_order = 9
+    join public.production_prod_pieces piece on piece.id = ps.piece_id and piece.prod_id = p_prod and piece.company_id = company
+    left join public.production_piece_dispositions d on d.piece_id = piece.id
+  where ps.id = any(p_piece_stage_ids) and ps.prod_id = p_prod and ps.company_id = company
+    and ps.load_volume_count > 0 and d.cancelled_at is null
+    and not exists(select 1 from public.production_expedition_archives a where a.piece_stage_id = ps.id and a.restored_at is null);
+  if item_count <> cardinality(p_piece_stage_ids)
+     or exists(select 1 from public.production_romaneio_items i where i.piece_stage_id = any(p_piece_stage_ids))
+     or jsonb_array_length(p_report->'rows') <> item_count
+     or (p_report->>'totalVolumes')::integer is distinct from expected_volumes
+     or (p_report->>'totalItems')::integer is distinct from expected_items
+  then raise exception 'Peças ou volumes mudaram, ou já constam de um romaneio. Atualize a página.'; end if;
+
+  select coalesce(max(r.sequence_number), 0) + 1 into next_number
+    from public.production_romaneios r where r.company_id = company and r.issue_year = current_year;
+  if next_number > 999999 then raise exception 'Limite anual de romaneios atingido.'; end if;
+  document_number := 'ROM-' || current_year::text || '-' || lpad(next_number::text, 6, '0');
+  insert into public.production_romaneios(company_id, prod_id, issue_year, sequence_number, number, report, created_by)
+  values(company, p_prod, current_year, next_number, document_number,
+         p_report || jsonb_build_object('romaneioNumber', document_number), p_actor)
+  returning id into document_id;
+  insert into public.production_romaneio_items(romaneio_id, company_id, prod_id, piece_stage_id)
+  select document_id, company, p_prod, id from unnest(p_piece_stage_ids) id;
+  return document_id;
+end $$;
+
 -- Only a Master can reopen a previously declared PROD; the service role
 -- invokes this after resolving and checking the real logged-in user.
 create function public.production_reopen_historical_prod(p_actor uuid,p_prod uuid,p_reason text)
