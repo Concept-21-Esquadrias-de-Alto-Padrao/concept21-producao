@@ -44,6 +44,7 @@ export function ContractScopePdfForm({ contractId }: { contractId: string }) {
     {preview && <div className="rounded border border-border bg-slate-50 p-3 text-sm">
       <p className="font-semibold">Prévia de {preview.fileName} · contrato {preview.contractNumber}</p>
       <p className="mt-1 text-muted-foreground">{preview.items.length} códigos · {preview.items.reduce((total, item) => total + item.quantity, 0)} unidades. Documento identificado como proposta; confira se corresponde à lista vigente do Técnico.</p>
+      {!!preview.normalizedCodes?.length && <p className="mt-2 text-amber-900">Códigos com espaço no PDF serão registrados sem espaço: {preview.normalizedCodes.map(({ original, code }) => `${original} → ${code}`).join("; ")}.</p>}
       <ul className="mt-2 flex flex-wrap gap-2">{preview.items.map(item => <li key={item.code} className="rounded border border-border bg-white px-2 py-1">{item.code}: {item.quantity}</li>)}</ul>
     </div>}
     <div className="grid gap-3 sm:grid-cols-2">
