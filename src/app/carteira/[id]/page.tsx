@@ -25,6 +25,8 @@ export default async function WorkDetail({ params }: { params: Promise<{ id: str
   const row = buildWorkPortfolio(snapshot, canSeeMaterials).find(item => item.contract.id === id);
   if (!row || row.contract.lifecycle?.archived_at) notFound();
   const { contract, prods } = row;
+  const openProds = prods.filter(prod => lifecycleView(prod) === "em_andamento");
+  const pastProds = prods.filter(prod => lifecycleView(prod) !== "em_andamento");
   const revisions = snapshot.contractScopeRevisions.filter(item => item.contract_id === id)
     .sort((a, b) => b.revision_number - a.revision_number);
   const revision = revisions[0] ?? null;
@@ -69,9 +71,9 @@ export default async function WorkDetail({ params }: { params: Promise<{ id: str
       <ContractScopePdfForm contractId={id} />
     </section>}
     <section className="space-y-3">
-      <h2 className="font-semibold">Liberações recebidas · {prods.length} PROD(s)</h2>
-      {!prods.length && <p className="rounded-md border border-border bg-white p-4 text-sm">Sem PROD cadastrada. A obra permanece visível para o planejamento.</p>}
-      {prods.map(prod => {
+      <h2 className="font-semibold">PRODs abertas · {openProds.length}</h2>
+      {!openProds.length && <p className="rounded-md border border-border bg-white p-4 text-sm">Sem PROD em andamento. A obra permanece visível para o planejamento.</p>}
+      {openProds.map(prod => {
         const pieces = snapshot.prodPieces.filter(piece => piece.prod_id === prod.id && !piece.disposition?.cancelled_at);
         const imports = snapshot.prodPieceImports.filter(batch => batch.prod_id === prod.id);
         const stage = snapshot.stages.find(item => item.id === prod.current_stage_id);
@@ -91,6 +93,9 @@ export default async function WorkDetail({ params }: { params: Promise<{ id: str
           <p className="mt-1 text-xs text-muted-foreground">{imports.length ? `Última leitura de itens: ${imports[0].file_name}, em ${formatDateTime(imports[0].created_at)}.` : "Sem leitura de itens registrada nesta PROD."} {pieces.length ? "" : "Nenhum item cadastrado."}</p>
         </article>;
       })}
+      {pastProds.length > 0 && <details className="rounded-md border border-border bg-white p-4 text-sm"><summary className="cursor-pointer font-semibold">PRODs no histórico · {pastProds.length}</summary>
+        <div className="mt-3 space-y-2">{pastProds.map(prod => <Link key={prod.id} href={`/prods/${prod.id}`} className="flex items-center justify-between rounded-md border border-border p-3"><span>PROD {prod.prod_number}</span><span>{lifecycleViewLabels[lifecycleView(prod)]}</span></Link>)}</div>
+      </details>}
     </section>
     <LifecycleHistory events={history.events} profiles={snapshot.profiles.map(profile => ({ id: profile.id, name: profile.name }))} />
   </div>;
