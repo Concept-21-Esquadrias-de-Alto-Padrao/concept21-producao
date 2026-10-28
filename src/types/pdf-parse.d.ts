@@ -14,6 +14,8 @@ declare module "pdf-parse" {
 }
 
 declare module "pdf-parse/lib/pdf-parse.js" {
+  type PdfTextItem = { str: string; transform: number[] };
+  type PdfPage = { getTextContent(options: { disableCombineTextItems: boolean }): Promise<{ items: PdfTextItem[] }> };
   type PdfParseResult = {
     numpages: number;
     numrender: number;
@@ -23,7 +25,7 @@ declare module "pdf-parse/lib/pdf-parse.js" {
     version?: string;
   };
 
-  function pdfParse(dataBuffer: Buffer): Promise<PdfParseResult>;
+  function pdfParse(dataBuffer: Buffer, options?: { pagerender?: (page: PdfPage) => Promise<string> }): Promise<PdfParseResult>;
 
   export = pdfParse;
 }
