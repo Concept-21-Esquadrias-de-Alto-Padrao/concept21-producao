@@ -91,7 +91,7 @@ export function formatProdIdentification(
 export function ensureUniqueProdNumber(
   prods: Pick<ProductionProd, "contract_id" | "prod_number" | "id">[],
   contractId: string,
-  prodNumber: number,
+  prodNumber: string,
   ignoredProdId?: string,
 ) {
   return !prods.some(
@@ -245,7 +245,7 @@ export function groupProdNumbersForStop(
 
   const grouped = new Map<
     string,
-    { client: Client; contract: ProductionContract; numbers: number[] }
+    { client: Client; contract: ProductionContract; numbers: string[] }
   >();
 
   for (const context of contexts) {
@@ -258,7 +258,7 @@ export function groupProdNumbersForStop(
   }
 
   return [...grouped.values()].map(({ client, contract, numbers }) => {
-    const sorted = numbers.sort((a, b) => a - b);
+    const sorted = numbers.sort(new Intl.Collator("pt-BR", { numeric: true }).compare);
     const prefix = `${client.name} - ${contract.contract_number} - `;
     const prodLabel =
       sorted.length === 1

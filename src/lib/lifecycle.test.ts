@@ -57,7 +57,7 @@ describe("official production lifecycle", () => {
     expect(getForecastVsDone({...demoSnapshot,prods:[prod]})[0].concluidas).toBe(0);
   });
   it("manual completed/cancelled status is rejected at form validation", () => {
-    const base={contract_id:"00000000-0000-4000-8000-000000000001",prod_number:1};
+    const base={contract_id:"00000000-0000-4000-8000-000000000001",prod_number:"1"};
     for(const status of ["concluida","cancelada"]) expect(prodSchema.safeParse({...base,status}).success).toBe(false);
   });
   it("untrusted URL views cannot access prototype properties", () => {

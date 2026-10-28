@@ -91,8 +91,8 @@ function ProdEditForm({
         <Field label="Número da PROD">
           <input
             name="prod_number"
-            type="number"
-            min={1}
+            type="text"
+            maxLength={50}
             className={inputClass}
             defaultValue={context.prod.prod_number}
             required

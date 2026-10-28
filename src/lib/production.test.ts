@@ -26,6 +26,7 @@ import {
 import { currentProductiveSeconds, formatDurationClock } from "./pointing";
 import { buildPausedIntervals, sumMergedIntervalSeconds } from "./pointing-productivity";
 import { buildProductionProductivityReport } from "./productivity-report";
+import { prodSchema } from "./schemas";
 import { POINTING_ACTIONS } from "./types";
 
 describe("production domain rules", () => {
@@ -40,14 +41,35 @@ describe("production domain rules", () => {
   });
 
   it("impede PROD duplicada dentro do mesmo contrato", () => {
-    expect(ensureUniqueProdNumber(demoSnapshot.prods, "contract-260064", 2)).toBe(
+    expect(ensureUniqueProdNumber(demoSnapshot.prods, "contract-260064", "2")).toBe(
       false,
     );
-    expect(ensureUniqueProdNumber(demoSnapshot.prods, "contract-260064", 5)).toBe(
+    expect(ensureUniqueProdNumber(demoSnapshot.prods, "contract-260064", "5")).toBe(
       true,
     );
-    expect(ensureUniqueProdNumber(demoSnapshot.prods, "contract-260072", 2)).toBe(
+    expect(ensureUniqueProdNumber(demoSnapshot.prods, "contract-260072", "2")).toBe(
       true,
+    );
+    const prods = [...demoSnapshot.prods, { ...demoSnapshot.prods[0], id: "prod-max", prod_number: "1-MAX" }];
+    expect(ensureUniqueProdNumber(prods, "contract-260064", "1-MAX")).toBe(false);
+    expect(ensureUniqueProdNumber(prods, "contract-260072", "1-MAX")).toBe(true);
+  });
+
+  it("aceita identificações de PROD numéricas ou com sufixo e remove espaços externos", () => {
+    const contract_id = "00000000-0000-4000-8000-000000000001";
+    expect(prodSchema.parse({ contract_id, prod_number: " 1-MAX " }).prod_number).toBe("1-MAX");
+    expect(prodSchema.parse({ contract_id, prod_number: "2" }).prod_number).toBe("2");
+    expect(prodSchema.safeParse({ contract_id, prod_number: "   " }).success).toBe(false);
+  });
+
+  it("ordena as identificações de PROD no agrupamento do frete", () => {
+    const snapshot = structuredClone(demoSnapshot);
+    snapshot.prods[0].prod_number = "10";
+    snapshot.prods[1].prod_number = "1-MAX";
+    snapshot.prods[2].prod_number = "2";
+    snapshot.freightStops[0].prod_ids = ["prod-260064-1", "prod-260064-2", "prod-260064-3"];
+    expect(groupProdNumbersForStop(snapshot.freightStops[0], snapshot)[0]).toContain(
+      "PROD 1-MAX e PROD 2 e PROD 10",
     );
   });
 
