@@ -90,7 +90,7 @@ export const contractUpdateSchema = contractBaseSchema
 
 export const prodSchema = z.object({
   contract_id: z.string().uuid("Contrato obrigatório"),
-  prod_number: z.coerce.number().int().positive("Número da PROD obrigatório"),
+  prod_number: z.string().trim().min(1, "Número da PROD obrigatório").max(50, "Número da PROD deve ter até 50 caracteres"),
   description: optionalText,
   owner_profile_id: optionalUuid,
   priority: z.enum(PRIORITIES).default("normal"),
