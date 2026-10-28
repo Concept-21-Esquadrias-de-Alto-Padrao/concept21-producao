@@ -262,7 +262,7 @@ export const demoSnapshot: ProductionSnapshot = {
     {
       id: "prod-260064-1",
       contract_id: "contract-260064",
-      prod_number: 1,
+      prod_number: "1",
       description: "Primeiro lote de esquadrias sociais.",
       owner_profile_id: "profile-master",
       priority: "alta",
@@ -284,7 +284,7 @@ export const demoSnapshot: ProductionSnapshot = {
     {
       id: "prod-260064-2",
       contract_id: "contract-260064",
-      prod_number: 2,
+      prod_number: "2",
       description: "Segundo lote com portas de correr.",
       owner_profile_id: "profile-master",
       priority: "urgente",
@@ -306,7 +306,7 @@ export const demoSnapshot: ProductionSnapshot = {
     {
       id: "prod-260064-3",
       contract_id: "contract-260064",
-      prod_number: 3,
+      prod_number: "3",
       description: "Lote complementar para área gourmet.",
       owner_profile_id: "profile-master",
       priority: "normal",
@@ -328,7 +328,7 @@ export const demoSnapshot: ProductionSnapshot = {
     {
       id: "prod-260072-1",
       contract_id: "contract-260072",
-      prod_number: 1,
+      prod_number: "1",
       description: "Fachada pavimento térreo.",
       owner_profile_id: "profile-master",
       priority: "normal",
