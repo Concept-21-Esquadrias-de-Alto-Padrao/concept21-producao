@@ -63,8 +63,8 @@ export default async function WorkPortfolioPage({ searchParams }: { searchParams
         </div>
         <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-3">
           <div><dt className="text-muted-foreground">Data do planejamento</dt><dd>{formatDate(row.contract.general_delivery_forecast)}</dd></div>
-          <div><dt className="text-muted-foreground">PRODs</dt><dd>{row.prods.length}</dd></div>
-          <div><dt className="text-muted-foreground">Itens nas PRODs</dt><dd>{row.pieceLines} linhas · {row.pieceUnits} unidades</dd></div>
+          <div><dt className="text-muted-foreground">PRODs abertas</dt><dd>{row.prods.filter(prod => lifecycleView(prod) === "em_andamento").length}</dd></div>
+          <div><dt className="text-muted-foreground">Itens registrados em todas as PRODs</dt><dd>{row.pieceLines} linhas · {row.pieceUnits} unidades</dd></div>
           <div><dt className="text-muted-foreground">Liberação técnica integral</dt><dd>{row.scopeStatus === "completo" ? "Lista integral conciliada" : row.scopeReady ? <Link href={`/carteira/${row.contract.id}#escopo`} className="font-semibold text-accent underline">Peças coincidem · confirmar escopo do Técnico</Link> : row.scopeStatus === "sem_base" ? "Falta lista integral" : "Conciliação pendente"}</dd></div>
         </dl>
       </article>)}
