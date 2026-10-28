@@ -63,6 +63,10 @@ export function isOfficiallyCompleted(item: { lifecycle?: ProdLifecycle | Contra
 export function isOperationalProd(prod: ProductionProd, contracts: ProductionContract[] = []) {
   return lifecycleView(prod) === "em_andamento" && !contracts.find(c => c.id === prod.contract_id)?.lifecycle?.archived_at;
 }
+export function awaitsNextProd(contract: ProductionContract, prods: ProductionProd[]) {
+  return lifecycleView(contract) === "em_andamento" && !contract.lifecycle?.scope_confirmed_at &&
+    prods.length > 0 && prods.every(prod => Boolean(prod.lifecycle?.historical_recorded_at));
+}
 export function completionInPeriod(at: string | null | undefined, start?: string, end?: string) {
   if (!start && !end) return true;
   if (!at) return false;
