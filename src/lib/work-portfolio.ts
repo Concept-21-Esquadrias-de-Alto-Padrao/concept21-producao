@@ -1,4 +1,4 @@
-import { lifecycleView } from "./lifecycle";
+import { awaitsNextProd, lifecycleView } from "./lifecycle";
 import { reconcileContractScope } from "./contract-scope";
 import type { ProductionContract, ProductionProd, ProductionSnapshot } from "./types";
 
@@ -12,7 +12,7 @@ export type WorkPortfolioRow = {
   scopeStatus: "sem_base" | "pendente" | "completo";
   scopeReady: boolean;
   materialState: "indisponivel" | "sem_prod" | "nao_verificado" | "pendente" | "confirmado";
-  progress: "sem_prod" | "sem_itens" | "em_planejamento" | "em_producao" | "concluido";
+  progress: "sem_prod" | "aguarda_nova_prod" | "sem_itens" | "em_planejamento" | "em_producao" | "concluido";
 };
 
 export function buildWorkPortfolio(snapshot: ProductionSnapshot, canSeeMaterials: boolean): WorkPortfolioRow[] {
@@ -57,6 +57,7 @@ export function buildWorkPortfolio(snapshot: ProductionSnapshot, canSeeMaterials
 
     const progress: WorkPortfolioRow["progress"] = lifecycleView(contract) === "concluidos" ? "concluido"
       : !prods.length ? "sem_prod"
+      : awaitsNextProd(contract, prods) ? "aguarda_nova_prod"
       : prods.every(prod => lifecycleView(prod) === "concluidos") ? "concluido"
         : !pieces.length ? "sem_itens"
           : prods.some(prod => ["em_producao", "embalagem", "expedicao"].includes(prod.status))
@@ -80,6 +81,7 @@ export function buildWorkPortfolio(snapshot: ProductionSnapshot, canSeeMaterials
 
 export const workProgressLabels: Record<WorkPortfolioRow["progress"], string> = {
   sem_prod: "Aguarda PROD",
+  aguarda_nova_prod: "Aguarda nova PROD",
   sem_itens: "PROD sem itens cadastrados",
   em_planejamento: "PRODs em planejamento",
   em_producao: "PRODs em execução",
