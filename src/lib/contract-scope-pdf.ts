@@ -11,7 +11,19 @@ export type ContractScopePdfPreview = {
 
 export async function parseContractScopePdf(buffer: Buffer): Promise<ContractScopePdfPreview> {
   if (buffer.subarray(0, 5).toString() !== "%PDF-") throw new Error("Selecione um arquivo PDF válido.");
-  const parsed = await pdfParse(buffer);
+  const parsed = await pdfParse(buffer, { pagerender: async page => {
+    // SmartCEM places each table cell in a separate text item, but pdf-parse's
+    // default renderer glues adjacent cells together (P1 + 651 becomes P1651).
+    const { items } = await page.getTextContent({ disableCombineTextItems: true });
+    let lastY: number | undefined;
+    let text = "";
+    for (const item of items) {
+      text += lastY === undefined || lastY !== item.transform[5] ? "\n" : "\t";
+      text += item.str;
+      lastY = item.transform[5];
+    }
+    return text;
+  } });
   return parseContractScopePdfText(parsed.text, parsed.numpages);
 }
 
@@ -33,12 +45,19 @@ export function parseContractScopePdfText(rawText: string, pages: number): Contr
     let rawQuantity: string | undefined;
 
     if (/^Tipo:\s*Linha:\s*L:\s*H:\s*Qtd:$/i.test(line)) {
-      // SmartCEM joins code, dimensions, line name and quantity without separators.
-      // Codes may contain a space or suffix; line names may contain spaces and punctuation.
+      // Preserve text-item boundaries for PDF files. Legacy extracted text may
+      // still contain a single joined row, handled below.
       const row = lines[index + 1] ?? "";
-      // In this joined format a numeric suffix is indistinguishable from the width.
-      const match = row.match(/^([A-Z]{1,8}\s?\d{2}(?:[_./-][A-Z]{1,12})?)(\d{6,10})([A-Z][A-Z0-9 .&/-]{0,80}?[A-Z.])([1-9]\d{0,4})$/);
-      if (match) [, code, , , rawQuantity] = match;
+      const cells = row.split("\t");
+      if (cells.length === 5 && /^[1-9]\d{0,5}$/.test(cells[1]) &&
+          /^[1-9]\d{0,5}$/.test(cells[2]) && /^[A-Z][A-Z0-9 .&/-]{0,80}$/i.test(cells[3])) {
+        code = cells[0];
+        rawQuantity = cells[4];
+      } else {
+        // The older flat format is unambiguous only for two-digit codes.
+        const match = row.match(/^([A-Z]{1,8}\s?\d{2}(?:[_./-][A-Z]{1,12})?)(\d{6,10})([A-Z][A-Z0-9 .&/-]{0,80}?[A-Z.])([1-9]\d{0,4})$/);
+        if (match) [, code, , , rawQuantity] = match;
+      }
     } else if (/^Tipo:\s*Qtd:\s*L:\s*H:\s*Linha:\s*Localização:$/i.test(line)) {
       // Some exports preserve the visual table order as one text row.
       const row = lines[index + 1] ?? "";
