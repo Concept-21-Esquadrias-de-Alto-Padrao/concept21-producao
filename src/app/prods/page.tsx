@@ -148,7 +148,7 @@ export default async function ProdsPage({
                     </select>
                   </Field>
                   <Field label="Número da PROD">
-                    <input name="prod_number" type="number" min={1} className={inputClass} required />
+                    <input name="prod_number" type="text" maxLength={50} placeholder="Ex.: 1 ou 1-MAX" className={inputClass} required />
                   </Field>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2">
