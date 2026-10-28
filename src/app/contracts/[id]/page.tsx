@@ -18,6 +18,8 @@ export default async function ContractDetail({ params }: { params: Promise<{ id:
   if (!contract || (contract.lifecycle?.archived_at && !access.isMaster)) notFound();
   const history = await getLifecycleHistory(id, "contract");
   const prods = snapshot.prods.filter(p => p.contract_id === id && (access.isMaster || !p.lifecycle?.archived_at));
+  const openProds = prods.filter(p => lifecycleView(p) === "em_andamento");
+  const pastProds = prods.filter(p => lifecycleView(p) !== "em_andamento");
   const l = contract.lifecycle;
   const waitingForNextProd = awaitsNextProd(contract, snapshot.prods.filter(p => p.contract_id === id));
   const allFinished = prods.length > 0 && prods.every(p => ["concluidos", "cancelados"].includes(lifecycleView(p)));
@@ -35,9 +37,12 @@ export default async function ContractDetail({ params }: { params: Promise<{ id:
       {l?.archived_at && <p className="text-sm">Arquivado em {formatDateTime(l.archived_at)}. Motivo: {l.archive_reason}.</p>}
       <p className="text-sm text-muted-foreground">A conclusão deste contrato se refere à Produção. Instalação e entrega final ao cliente são acompanhadas em Obras.</p>
     </section>
-    <section className="space-y-3"><h2 className="font-semibold">PRODs do contrato</h2>
-      {prods.length === 0 && <p>Nenhuma PROD cadastrada.</p>}
-      {prods.map(prod => <Link key={prod.id} href={`/prods/${prod.id}`} className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border bg-white p-3"><span>PROD {prod.prod_number} · {prod.description}</span><LifecycleBadge item={prod} /></Link>)}
+    <section className="space-y-3"><h2 className="font-semibold">PRODs abertas · {openProds.length}</h2>
+      {openProds.length === 0 && <p>Nenhuma PROD em andamento.</p>}
+      {openProds.map(prod => <Link key={prod.id} href={`/prods/${prod.id}`} className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border bg-white p-3"><span>PROD {prod.prod_number} · {prod.description}</span><LifecycleBadge item={prod} /></Link>)}
+      {pastProds.length > 0 && <details className="rounded-md border border-border bg-white p-3 text-sm"><summary className="cursor-pointer font-semibold">PRODs no histórico · {pastProds.length}</summary>
+        <div className="mt-3 space-y-2">{pastProds.map(prod => <Link key={prod.id} href={`/prods/${prod.id}`} className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border p-3"><span>PROD {prod.prod_number} · {prod.description}</span><LifecycleBadge item={prod} /></Link>)}</div>
+      </details>}
     </section>
     {!l?.archived_at && <div className="grid gap-3 lg:grid-cols-2">
       {l?.scope_confirmed_at && (access.isMaster || access.permissions["production.contracts.confirm_scope"]) && <LifecycleCommand entity={id} command="reopen_scope" description="Reabra a confirmação se encontrar uma divergência. Registre a lista integral revisada na carteira; a conciliação será recalculada automaticamente." />}
