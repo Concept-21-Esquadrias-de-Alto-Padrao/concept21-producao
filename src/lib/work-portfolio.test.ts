@@ -45,6 +45,23 @@ describe("carteira de obras", () => {
     expect(buildWorkPortfolio(data, false)[1].progress).toBe("concluido");
   });
 
+  it("distingue a PROD histórica entregue do contrato ainda aberto para nova PROD", () => {
+    const data = snapshot();
+    data.prods[0].lifecycle = { historical_recorded_at: "2026-10-28T15:00:00Z" } as NonNullable<typeof data.prods[0]["lifecycle"]>;
+    data.prods = [data.prods[0]];
+    expect(buildWorkPortfolio(data, false)[0].progress).toBe("aguarda_nova_prod");
+
+    data.prods.push({ ...data.prods[0], id: "prod-new", prod_number: "2", lifecycle: null, status: "planejamento" });
+    expect(buildWorkPortfolio(data, false)[0].progress).toBe("em_planejamento");
+
+    data.prods.pop();
+    data.contracts[0].lifecycle = { scope_confirmed_at: "2026-10-28T15:02:00Z" } as NonNullable<typeof data.contracts[0]["lifecycle"]>;
+    expect(buildWorkPortfolio(data, false)[0].progress).toBe("concluido");
+
+    data.contracts[0].lifecycle = { historical_recorded_at: "2026-10-28T15:05:00Z" } as NonNullable<typeof data.contracts[0]["lifecycle"]>;
+    expect(buildWorkPortfolio(data, false)[0].progress).toBe("concluido");
+  });
+
   it("filtra o prazo na data do planejamento, com trinta dias inclusivos", () => {
     expect(planningDeadline(null, "2026-10-22")).toBe("sem_data");
     expect(planningDeadline("2026-10-21", "2026-10-22")).toBe("vencido");

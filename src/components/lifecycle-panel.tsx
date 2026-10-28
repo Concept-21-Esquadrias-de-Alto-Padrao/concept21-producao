@@ -22,9 +22,9 @@ const eventLabels: Record<string, string> = {
   escopo_reaberto: "Confirmação de escopo invalidada", saida_invalidada: "Saída anterior invalidada",
   conclusao_historica: "Conclusão histórica declarada", prod_historica_reaberta: "PROD histórica reaberta",
 };
-export function LifecycleBadge({ item, waitingForProd = false }: { item: ProductionContract | ProductionProd; waitingForProd?: boolean }) {
+export function LifecycleBadge({ item, waitingForProd = false, waitingForNextProd = false }: { item: ProductionContract | ProductionProd; waitingForProd?: boolean; waitingForNextProd?: boolean }) {
   const view = lifecycleView(item);
-  return <span className={`inline-flex rounded-md px-2 py-1 text-xs font-semibold ${view === "concluidos" ? "bg-emerald-50 text-emerald-800" : view === "arquivados" ? "bg-zinc-100 text-zinc-700" : "bg-orange-50 text-orange-900"}`}>{item.lifecycle?.historical_recorded_at ? "Concluído (histórico)" : waitingForProd && view === "em_andamento" ? "Aguarda PROD" : lifecycleViewLabels[view]}</span>;
+  return <span className={`inline-flex rounded-md px-2 py-1 text-xs font-semibold ${view === "concluidos" ? "bg-emerald-50 text-emerald-800" : view === "arquivados" ? "bg-zinc-100 text-zinc-700" : "bg-orange-50 text-orange-900"}`}>{item.lifecycle?.historical_recorded_at ? "Concluído (histórico)" : waitingForNextProd && view === "em_andamento" ? "Aguarda nova PROD" : waitingForProd && view === "em_andamento" ? "Aguarda PROD" : lifecycleViewLabels[view]}</span>;
 }
 export function LifecycleCommand({ entity, command, pieces = [], description, romaneioNumbers = [] }: {
   entity: string; command: string; pieces?: ProductionPiece[]; description?: string; romaneioNumbers?: string[];

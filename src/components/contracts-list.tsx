@@ -9,6 +9,7 @@ import { useActionState, useEffect, useMemo, useState } from "react";
 import { updateContractAction } from "@/app/actions";
 import { Field, inputClass, textareaClass } from "@/components/action-form";
 import { ContractAddressFields } from "@/components/contract-address-fields";
+import { awaitsNextProd } from "@/lib/lifecycle";
 import type { Client, ProductionContract, ProductionProd } from "@/lib/types";
 import { formatDate } from "@/lib/utils";
 
@@ -228,7 +229,9 @@ export function ContractsList({ contracts, clients, prods, canEdit }: ContractsL
 
       {filteredContracts.map((contract) => {
         const client = clientName(clients, contract);
-        const prodCount = prods.filter((prod) => prod.contract_id === contract.id).length;
+        const contractProds = prods.filter((prod) => prod.contract_id === contract.id);
+        const prodCount = contractProds.length;
+        const waitingForNextProd = awaitsNextProd(contract, contractProds);
         const editing = editingId === contract.id;
         const viewing = viewingId === contract.id;
 
@@ -246,7 +249,7 @@ export function ContractsList({ contracts, clients, prods, canEdit }: ContractsL
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                   <div>
                     <Link className="font-semibold text-charcoal underline" href={`/contracts/${contract.id}`}>{client} · {contract.contract_number}</Link>
-                    <div className="mt-2"><LifecycleBadge item={contract} waitingForProd={prodCount === 0} /></div>
+                    <div className="mt-2"><LifecycleBadge item={contract} waitingForProd={prodCount === 0} waitingForNextProd={waitingForNextProd} /></div>
                     <p className="text-sm text-muted-foreground">{contract.work_name}</p>
                   </div>
                   <div className="flex items-start gap-2">
