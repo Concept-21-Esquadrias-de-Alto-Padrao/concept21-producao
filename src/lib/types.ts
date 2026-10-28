@@ -304,7 +304,7 @@ export type ProductionProd = {
   status_origin?: "automatico" | "manual" | "legado" | "historico";
   id: string;
   contract_id: string;
-  prod_number: number;
+  prod_number: string;
   description: string | null;
   owner_profile_id: string | null;
   priority: Priority;
