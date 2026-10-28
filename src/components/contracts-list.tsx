@@ -9,7 +9,7 @@ import { useActionState, useEffect, useMemo, useState } from "react";
 import { updateContractAction } from "@/app/actions";
 import { Field, inputClass, textareaClass } from "@/components/action-form";
 import { ContractAddressFields } from "@/components/contract-address-fields";
-import { awaitsNextProd } from "@/lib/lifecycle";
+import { awaitsNextProd, lifecycleView } from "@/lib/lifecycle";
 import type { Client, ProductionContract, ProductionProd } from "@/lib/types";
 import { formatDate } from "@/lib/utils";
 
@@ -230,7 +230,7 @@ export function ContractsList({ contracts, clients, prods, canEdit }: ContractsL
       {filteredContracts.map((contract) => {
         const client = clientName(clients, contract);
         const contractProds = prods.filter((prod) => prod.contract_id === contract.id);
-        const prodCount = contractProds.length;
+        const openProdCount = contractProds.filter((prod) => lifecycleView(prod) === "em_andamento").length;
         const waitingForNextProd = awaitsNextProd(contract, contractProds);
         const editing = editingId === contract.id;
         const viewing = viewingId === contract.id;
@@ -249,12 +249,14 @@ export function ContractsList({ contracts, clients, prods, canEdit }: ContractsL
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                   <div>
                     <Link className="font-semibold text-charcoal underline" href={`/contracts/${contract.id}`}>{client} · {contract.contract_number}</Link>
-                    <div className="mt-2"><LifecycleBadge item={contract} waitingForProd={prodCount === 0} waitingForNextProd={waitingForNextProd} /></div>
+                    <div className="mt-2"><LifecycleBadge item={contract} waitingForProd={contractProds.length === 0} waitingForNextProd={waitingForNextProd} /></div>
                     <p className="text-sm text-muted-foreground">{contract.work_name}</p>
                   </div>
                   <div className="flex items-start gap-2">
                     <span className="rounded-md bg-zinc-100 px-2 py-1 text-xs font-semibold text-zinc-700 ring-1 ring-zinc-200">
-                      {prodCount} PROD(s)
+                      {lifecycleView(contract) === "em_andamento"
+                        ? `${openProdCount} ${openProdCount === 1 ? "PROD aberta" : "PRODs abertas"}`
+                        : `${contractProds.length} PROD(s)`}
                     </span>
                     <button
                       type="button"
