@@ -6,7 +6,7 @@ import { getCurrentPermissionFlags } from "@/lib/server-access";
 import { appNavigationPermissionKeys, canAccessModule, MODULE_ACCESS } from "@/lib/module-access";
 import { LifecycleBadge, LifecycleCommand, LifecycleHistory } from "@/components/lifecycle-panel";
 import { PageHeader } from "@/components/page-header";
-import { lifecycleView } from "@/lib/lifecycle";
+import { awaitsNextProd, lifecycleView } from "@/lib/lifecycle";
 import { formatDateTime } from "@/lib/utils";
 
 export default async function ContractDetail({ params }: { params: Promise<{ id: string }> }) {
@@ -19,17 +19,19 @@ export default async function ContractDetail({ params }: { params: Promise<{ id:
   const history = await getLifecycleHistory(id, "contract");
   const prods = snapshot.prods.filter(p => p.contract_id === id && (access.isMaster || !p.lifecycle?.archived_at));
   const l = contract.lifecycle;
+  const waitingForNextProd = awaitsNextProd(contract, snapshot.prods.filter(p => p.contract_id === id));
   const allFinished = prods.length > 0 && prods.every(p => ["concluidos", "cancelados"].includes(lifecycleView(p)));
   return <div className="space-y-6">
     <PageHeader title={`Contrato ${contract.contract_number}`} description={`${snapshot.clients.find(c => c.id === contract.client_id)?.name ?? ""} · ${contract.work_name}`} actions={<Link href="/contracts" className="underline">Voltar aos contratos</Link>} />
     <section className="space-y-3 rounded-md border border-border bg-white p-4">
-      <LifecycleBadge item={contract} waitingForProd={!snapshot.prods.some(p => p.contract_id === id)} />
+      <LifecycleBadge item={contract} waitingForProd={!snapshot.prods.some(p => p.contract_id === id)} waitingForNextProd={waitingForNextProd} />
       <p className="text-sm">Escopo técnico: {l?.scope_confirmed_at ? `conciliado em ${formatDateTime(l.scope_confirmed_at)}` : l?.historical_recorded_at ? "não conciliado pelo processo novo; conclusão declarada na conferência histórica" : "aguardando lista integral e conciliação com as PRODs"}.</p>
       <Link href={`/carteira/${id}`} className="text-sm font-semibold text-accent underline">Conferir itens do contrato e PRODs</Link>
       {l?.scope_evidence && <p className="text-sm">A conferência do escopo está registrada no histórico abaixo.</p>}
       <p className="text-sm">Encerramento na Produção: {formatDateTime(l?.completed_at)}.</p>
       {l?.historical_recorded_at && <p className="rounded bg-emerald-50 p-3 text-sm text-emerald-900">Conclusão histórica declarada por {l.historical_declared_by} na conferência de {l.historical_reviewed_on}. Registrada em {formatDateTime(l.historical_recorded_at)}. Data real da entrega não informada; esta declaração não comprova saídas no controle novo.</p>}
-      {!l?.scope_confirmed_at && !l?.historical_recorded_at && allFinished && <p className="rounded bg-amber-50 p-3 text-sm text-amber-900">Lotes atuais concluídos — aguardando conciliação com a lista integral do Técnico.</p>}
+      {!l?.scope_confirmed_at && !l?.historical_recorded_at && waitingForNextProd && <p className="rounded bg-amber-50 p-3 text-sm text-amber-900">As PRODs anteriores foram concluídas historicamente. Este contrato permanece aberto e aguarda a próxima PROD.</p>}
+      {!l?.scope_confirmed_at && !l?.historical_recorded_at && allFinished && !waitingForNextProd && <p className="rounded bg-amber-50 p-3 text-sm text-amber-900">Lotes atuais concluídos — aguardando conciliação com a lista integral do Técnico.</p>}
       {l?.archived_at && <p className="text-sm">Arquivado em {formatDateTime(l.archived_at)}. Motivo: {l.archive_reason}.</p>}
       <p className="text-sm text-muted-foreground">A conclusão deste contrato se refere à Produção. Instalação e entrega final ao cliente são acompanhadas em Obras.</p>
     </section>
