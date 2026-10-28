@@ -10,8 +10,8 @@ function snapshot(): ProductionSnapshot {
       { id: "contract-b", client_id: "client-a", contract_number: "25-0002", work_name: "Obra B", general_delivery_forecast: null },
     ],
     prods: [
-      { id: "prod-1", contract_id: "contract-a", prod_number: 1, status: "planejamento" },
-      { id: "prod-2", contract_id: "contract-a", prod_number: 2, status: "em_producao" },
+      { id: "prod-1", contract_id: "contract-a", prod_number: "1", status: "planejamento" },
+      { id: "prod-2", contract_id: "contract-a", prod_number: "2", status: "em_producao" },
     ],
     prodPieces: [
       { id: "piece-1", prod_id: "prod-1", piece_code: "J01", quantity: 2, released_to_production: true },
