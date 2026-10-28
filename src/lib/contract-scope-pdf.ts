@@ -6,6 +6,7 @@ export type ContractScopePdfPreview = {
   documentKind: "proposta";
   items: ContractScopeItem[];
   pages: number;
+  normalizedCodes?: { original: string; code: string }[];
 };
 
 export async function parseContractScopePdf(buffer: Buffer): Promise<ContractScopePdfPreview> {
@@ -24,6 +25,7 @@ export function parseContractScopePdfText(rawText: string, pages: number): Contr
 
   const lines = text.split("\n").map(line => line.trim()).filter(Boolean);
   const quantities = new Map<string, number>();
+  const normalizedCodes = new Map<string, string>();
   let rowsRead = 0;
   for (let index = 0; index < lines.length; index++) {
     const line = lines[index];
@@ -31,14 +33,16 @@ export function parseContractScopePdfText(rawText: string, pages: number): Contr
     let rawQuantity: string | undefined;
 
     if (/^Tipo:\s*Linha:\s*L:\s*H:\s*Qtd:$/i.test(line)) {
-      // Older SmartCEM exports join code, dimensions, line and quantity.
+      // SmartCEM joins code, dimensions, line name and quantity without separators.
+      // Codes may contain a space or suffix; line names may contain spaces and punctuation.
       const row = lines[index + 1] ?? "";
-      const match = row.match(/^([A-Z]{1,6}\d{2})(\d{6,10})([A-Z][A-Z0-9-]*?)([1-9]\d?)$/);
+      // In this joined format a numeric suffix is indistinguishable from the width.
+      const match = row.match(/^([A-Z]{1,8}\s?\d{2}(?:[_./-][A-Z]{1,12})?)(\d{6,10})([A-Z][A-Z0-9 .&/-]{0,80}?[A-Z.])([1-9]\d{0,4})$/);
       if (match) [, code, , , rawQuantity] = match;
     } else if (/^Tipo:\s*Qtd:\s*L:\s*H:\s*Linha:\s*Localização:$/i.test(line)) {
       // Some exports preserve the visual table order as one text row.
       const row = lines[index + 1] ?? "";
-      const match = row.match(/^([A-Z0-9_./-]{1,60})\s+([1-9]\d{0,4})\s+\d{1,6}\s+\d{1,6}\b/);
+      const match = row.match(/^([A-Z]{1,8}\s?\d{2}(?:[_./-][A-Z0-9]{1,12})?|[A-Z0-9_./-]{1,60})\s+([1-9]\d{0,4})\s+\d{1,6}\s+\d{1,6}\b/);
       if (match) [, code, rawQuantity] = match;
     } else if (/^Tipo:$/i.test(line)) {
       // In the newer export each label/value is a separate PDF text run.
@@ -50,15 +54,19 @@ export function parseContractScopePdfText(rawText: string, pages: number): Contr
       continue;
     }
 
-    if (!code || !/^[A-Z0-9_./-]{1,60}$/.test(code) ||
+    // The scope registry uses compact codes; e.g. the PDF's "RIP 01" is "RIP01".
+    const normalizedCode = code?.replace(/\s+/g, "");
+    if (!normalizedCode || !/^[A-Z0-9_./-]{1,60}$/.test(normalizedCode) ||
         !rawQuantity || !/^[1-9]\d{0,4}$/.test(rawQuantity) || Number(rawQuantity) > 10000) {
       throw new Error(`Não foi possível ler uma linha do desenho perto de “${line.slice(0, 50)}”. Confira o PDF antes de registrar.`);
     }
     rowsRead++;
     if (rowsRead > 500) throw new Error("O desenho contém mais de 500 linhas. Confira o PDF antes de registrar.");
-    quantities.set(code, (quantities.get(code) ?? 0) + Number(rawQuantity));
+    if (code && code !== normalizedCode) normalizedCodes.set(code, normalizedCode);
+    quantities.set(normalizedCode, (quantities.get(normalizedCode) ?? 0) + Number(rawQuantity));
   }
   if (!rowsRead) throw new Error("Não foi possível identificar com segurança os itens do desenho.");
   const items = parseContractScopeItems([...quantities].map(([code, quantity]) => `${code};${quantity}`).join("\n"));
-  return { contractNumber, documentKind: "proposta", items, pages };
+  return { contractNumber, documentKind: "proposta", items, pages,
+    ...(normalizedCodes.size ? { normalizedCodes: [...normalizedCodes].map(([original, code]) => ({ original, code })) } : {}) };
 }
