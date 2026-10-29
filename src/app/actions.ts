@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { parseContractScopePdf } from "@/lib/contract-scope-pdf";
+import { normalizeScopeCode, parseContractScopeMappings, type ContractScopeItem } from "@/lib/contract-scope";
 import { isTransportStage, TRANSPORT_ENABLED, TRANSPORT_DISABLED_MESSAGE } from "@/lib/transport-module";
 import { calculateOwnVehicleRouteCosts } from "@/lib/production";
 import { LOAD_CONTROL_ITEMS } from "@/lib/expedition";
@@ -1376,6 +1377,64 @@ export async function confirmExistingContractScopeAction(_: ActionState, formDat
   revalidatePath("/carteira");
   revalidatePath(`/contracts/${contractId}`);
   return { ok: true, message: `Escopo vigente confirmado e revisão ${data} conciliada automaticamente com as PRODs.` };
+}
+
+export async function mapContractScopeAction(_: ActionState, formData: FormData): Promise<ActionState> {
+  const context = await getActionContext();
+  if (!context.ok) return context.state;
+  const denied = await requireActionPermission(context, "production.contracts.edit", "Sem permissão para conciliar os itens do contrato.");
+  if (denied) return denied;
+  const contractId = String(formData.get("contract_id") ?? "");
+  const revisionId = String(formData.get("revision_id") ?? "");
+  const mapping = String(formData.get("mapping_json") ?? "");
+  if (!/^[0-9a-f-]{36}$/i.test(contractId) || !/^[0-9a-f-]{36}$/i.test(revisionId)) {
+    return { ok: false, message: "Contrato ou revisão inválidos." };
+  }
+  const admin = getSupabaseAdminClient();
+  const { data: contract, error: contractError } = await context.supabase.from("production_contracts")
+    .select("id").eq("id", contractId).eq("company_id", context.companyId).eq("active", true).maybeSingle();
+  if (contractError || !contract) return { ok: false, message: "Contrato ativo não encontrado na sua empresa." };
+  const { data: latest, error: revisionError } = await admin.from("production_contract_scope_revisions")
+    .select("id,source_kind,items").eq("contract_id", contractId).eq("company_id", context.companyId)
+    .order("revision_number", { ascending: false }).limit(1).maybeSingle();
+  if (revisionError || !latest || latest.id !== revisionId) {
+    return { ok: false, message: "A lista do contrato mudou. Atualize a página antes de conciliar." };
+  }
+  const confirmed = formData.get("confirmed_technical_scope") === "yes";
+  if (latest.source_kind === "tecnico_integral" && !confirmed) {
+    return { ok: false, message: "Confira os vínculos com a revisão vigente do Técnico antes de salvar." };
+  }
+  const { data: prods, error: prodsError } = await admin.from("production_prods")
+    .select("id").eq("contract_id", contractId).eq("company_id", context.companyId);
+  if (prodsError || !prods?.length) return { ok: false, message: "Este contrato ainda não possui peças em uma PROD." };
+  const { data: pieces, error: piecesError } = await admin.from("production_prod_pieces")
+    .select("piece_code,quantity,disposition:production_piece_dispositions(cancelled_at)")
+    .eq("company_id", context.companyId).in("prod_id", prods.map(prod => prod.id));
+  if (piecesError) return { ok: false, message: toUserFriendlyErrorMessage(piecesError) };
+  const actual = new Map<string, number>();
+  for (const piece of pieces ?? []) {
+    const disposition = Array.isArray(piece.disposition) ? piece.disposition[0] : piece.disposition;
+    if (disposition?.cancelled_at) continue;
+    const code = normalizeScopeCode(piece.piece_code);
+    actual.set(code, (actual.get(code) ?? 0) + Number(piece.quantity));
+  }
+  let mapped: ContractScopeItem[];
+  try {
+    mapped = parseContractScopeMappings(mapping, latest.items as ContractScopeItem[],
+      [...actual].map(([code, quantity]) => ({ code, quantity })));
+  } catch (error) {
+    return { ok: false, message: error instanceof Error ? error.message : "Confira os vínculos das peças." };
+  }
+  const mappings = Object.fromEntries(mapped.map(item => [item.code, item.prod_parts]));
+  const { data, error } = await admin.rpc("production_contract_scope_map", {
+    p_actor: context.profileId, p_contract: contractId, p_expected_revision: revisionId,
+    p_mappings: mappings, p_confirmed_technical_scope: confirmed,
+  });
+  if (error) return { ok: false, message: toUserFriendlyErrorMessage(error) };
+  revalidatePath(`/carteira/${contractId}`);
+  revalidatePath("/carteira");
+  revalidatePath(`/contracts/${contractId}`);
+  return { ok: true, message: `Vínculos salvos na revisão ${data}. Confira novamente o comparativo do contrato.` };
 }
 
 export async function updateContractAction(_: ActionState, formData: FormData) {
