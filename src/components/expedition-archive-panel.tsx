@@ -6,12 +6,12 @@ import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { setExpeditionArchiveAction } from "@/app/expedition-archive-actions";
 import { activeExpeditionArchive } from "@/lib/expedition-archive";
-import type { Client, ProductionContract, ProductionProd, ProductionPieceStage } from "@/lib/types";
+import type { PointingClient, PointingContract, ProductionProd, ProductionPieceStage } from "@/lib/types";
 import { formatDateTime } from "@/lib/utils";
 
 export function ExpeditionArchivePanel({ clients, contracts, prods, activeRows, archivedRows, stageName }: {
   stageName: "Corte" | "Usinagem" | "Preparação e montagem" | "Embalagem" | "Expedição";
-  clients: Client[]; contracts: ProductionContract[]; prods: ProductionProd[];
+  clients: PointingClient[]; contracts: PointingContract[]; prods: ProductionProd[];
   activeRows: ProductionPieceStage[]; archivedRows: ProductionPieceStage[];
 }) {
   const [mode, setMode] = useState<"archive" | "restore">("archive");

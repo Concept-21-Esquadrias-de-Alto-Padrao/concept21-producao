@@ -10,6 +10,8 @@ import type {
   ProductionProd,
   ProductionContract,
   Client,
+  PointingClient,
+  PointingContract,
   ProductionStage,
   Profile,
   StorageLocation,
@@ -41,11 +43,17 @@ import type {
   ProductionPieceStage,
   ProductionStageTimeEntry,
 } from "./types";
-import { hasActiveMasterRole } from "./server-access";
+import { getCurrentPermissionFlags, hasActiveMasterRole, HttpError, requireAuthenticatedProfile } from "./server-access";
 import { getSupabaseAdminClient } from "./supabase/admin";
 import { createSupabaseServerClient, hasSupabaseEnv } from "./supabase/server";
 import { accentDisplayText } from "./utils";
 import { deriveProdStatus } from "./prod-progress";
+import {
+  isActivePointingContract,
+  projectPointingClient,
+  projectPointingContract,
+  type PointingContractRow,
+} from "./pointing-context";
 
 type DbProdOverview = ProductionProd & {
   contract: ProductionContract & { client: Client };
@@ -1056,10 +1064,8 @@ export async function getProdDetailPageData(prodId: string) {
 }
 
 export async function getPointingPageData() {
-  return operationalSnapshot(await loadProductionSnapshot(
+  const snapshot = await loadProductionSnapshot(
     includeKeys([
-      "clients",
-      "contracts",
       "stages",
       "prods",
       "prodPieces",
@@ -1072,7 +1078,56 @@ export async function getPointingPageData() {
       "stageTimeEntries",
     ]),
     { throwOnError: true },
-  ));
+  );
+
+  if (!hasSupabaseEnv()) return operationalSnapshot(snapshot);
+
+  // This server-only path reads only the context of PRODs visible to the signed-in
+  // user. The base client/contract tables are no longer readable by pointing-only
+  // users; the service client must never return whole database rows to the UI.
+  const access = await getCurrentPermissionFlags(["production.pointing.view"]);
+  if (!access.isMaster && !access.permissions["production.pointing.view"]) {
+    throw new HttpError(403, "Sem permissão para visualizar apontamentos.");
+  }
+  const { admin, profile } = await requireAuthenticatedProfile();
+  const queue = operationalSnapshot(snapshot);
+  const contractIds = Array.from(new Set(queue.prods.map((prod) => prod.contract_id)));
+  if (!contractIds.length) return { ...queue, clients: [] as PointingClient[], contracts: [] as PointingContract[] };
+
+  const contractRows: PointingContractRow[] = [];
+  for (let index = 0; index < contractIds.length; index += 200) {
+    const { data, error } = await admin
+      .from("production_contracts")
+      .select("id,client_id,contract_number,work_name,full_address,street,block,lot,sector,city,state,site_contact,lifecycle:production_contract_lifecycle(archived_at)")
+      .eq("company_id", profile.company_id)
+      .in("id", contractIds.slice(index, index + 200));
+    if (error) throw new Error(`Falha ao carregar contratos da fila: ${error.message}`);
+    contractRows.push(...((data ?? []) as PointingContractRow[]));
+  }
+
+  const activeContracts = contractRows.filter(isActivePointingContract);
+  const visibleContractIds = new Set(activeContracts.map((contract) => contract.id));
+  const clientIds = Array.from(new Set(activeContracts.map((contract) => contract.client_id)));
+  const clientRows: PointingClient[] = [];
+  for (let index = 0; index < clientIds.length; index += 200) {
+    const { data, error } = await admin
+      .from("clients")
+      .select("id,name,phone")
+      .eq("company_id", profile.company_id)
+      .in("id", clientIds.slice(index, index + 200));
+    if (error) throw new Error(`Falha ao carregar clientes da fila: ${error.message}`);
+    clientRows.push(...((data ?? []) as PointingClient[]));
+  }
+
+  // Explicit projection keeps documents, emails, notes, and integration metadata
+  // out of the props sent to client-side pointing and expedition components.
+  const contracts: PointingContract[] = activeContracts.map(projectPointingContract);
+  const clients: PointingClient[] = clientRows.map(projectPointingClient);
+  const visibleQueue = operationalSnapshot({
+    ...queue,
+    prods: queue.prods.filter((prod) => visibleContractIds.has(prod.contract_id)),
+  });
+  return { ...visibleQueue, clients, contracts };
 }
 
 export async function getFreightsPageData() {

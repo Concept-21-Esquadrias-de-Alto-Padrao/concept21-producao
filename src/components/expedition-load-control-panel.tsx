@@ -30,8 +30,8 @@ import {
   pieceDimensions,
 } from "@/lib/expedition";
 import type {
-  Client,
-  ProductionContract,
+  PointingClient,
+  PointingContract,
   ProductionPiece,
   ProductionPieceStage,
   ProductionProd,
@@ -44,8 +44,8 @@ type ActionState = {
 };
 
 type ExpeditionLoadControlPanelProps = {
-  clients: Client[];
-  contracts: ProductionContract[];
+  clients: PointingClient[];
+  contracts: PointingContract[];
   prods: ProductionProd[];
   pieces: ProductionPiece[];
   stageRows: ProductionPieceStage[];
