@@ -47,9 +47,9 @@ import {
 } from "@/lib/pointing";
 import { calculateAdjustedPausedSeconds } from "@/lib/pointing-productivity";
 import type {
-  Client,
+  PointingClient,
   PointingAction,
-  ProductionContract,
+  PointingContract,
   ProductionOperator,
   ProductionPiece,
   ProductionPieceStage,
@@ -71,8 +71,8 @@ type ActionState = {
 };
 
 type PointingBoardProps = {
-  clients: Client[];
-  contracts: ProductionContract[];
+  clients: PointingClient[];
+  contracts: PointingContract[];
   prods: ProductionProd[];
   stages: ProductionStage[];
   pieces: ProductionPiece[];

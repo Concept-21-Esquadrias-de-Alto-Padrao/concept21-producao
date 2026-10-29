@@ -288,6 +288,24 @@ export type ProductionContract = {
   active: boolean;
 };
 
+/** Only the fields needed to identify a PROD and generate its expedition romaneio. */
+export type PointingClient = Pick<Client, "id" | "name" | "phone">;
+export type PointingContract = Pick<
+  ProductionContract,
+  | "id"
+  | "client_id"
+  | "contract_number"
+  | "work_name"
+  | "full_address"
+  | "street"
+  | "block"
+  | "lot"
+  | "sector"
+  | "city"
+  | "state"
+  | "site_contact"
+>;
+
 export type ProductionStage = {
   id: string;
   name: string;

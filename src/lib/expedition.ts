@@ -1,6 +1,6 @@
 import type {
-  Client,
-  ProductionContract,
+  PointingClient,
+  PointingContract,
   ProductionPiece,
   ProductionPieceStage,
   ProductionProd,
@@ -58,7 +58,7 @@ function compact(values: Array<string | null | undefined>) {
     .join(", ");
 }
 
-export function contractAddress(contract: ProductionContract) {
+export function contractAddress(contract: PointingContract) {
   return (
     accentDisplayText(contract.full_address ?? "").trim() ||
     compact([
@@ -96,8 +96,8 @@ export function buildExpeditionRomaneioReport({
   pieceStages,
   generatedAt = new Date().toISOString(),
 }: {
-  client: Client;
-  contract: ProductionContract;
+  client: PointingClient;
+  contract: PointingContract;
   prod: ProductionProd;
   pieces: ProductionPiece[];
   pieceStages: ProductionPieceStage[];
