@@ -23,6 +23,7 @@ import {
 } from "@/lib/types";
 import type { ProdContext } from "@/lib/production";
 import { describeMaterialConfirmation } from "@/lib/production";
+import type { OpenProdPlan } from "@/lib/open-prod-planning";
 import { formatDate } from "@/lib/utils";
 
 type ActionState = {
@@ -32,6 +33,9 @@ type ActionState = {
 
 type ProdsListProps = {
   contexts: ProdContext[];
+  plans: Record<string, OpenProdPlan>;
+  canSeeMaterials: boolean;
+  canSeeDocuments: boolean;
   materials: ProdMaterial[];
   contracts: ProductionContract[];
   profiles: Profile[];
@@ -256,6 +260,9 @@ function ProdDeleteForm({ context }: { context: ProdContext }) {
 
 export function ProdsList({
   contexts,
+  plans,
+  canSeeMaterials,
+  canSeeDocuments,
   materials,
   contracts,
   profiles,
@@ -271,6 +278,7 @@ export function ProdsList({
       {contexts.map((context) => {
         const editing = editingProdId === context.prod.id;
         const prodMaterials = materials.filter((material) => material.prod_id === context.prod.id);
+        const plan = plans[context.prod.id];
 
         return (
           <article key={context.prod.id} className="rounded-md border border-border bg-white p-3">
@@ -294,9 +302,20 @@ export function ProdsList({
                       compact
                     />
                     <p className="mt-1 text-sm text-muted-foreground">
-                      {context.currentStage?.name ?? "Sem etapa"} · Entrega{" "}
-                      {formatDate(context.prod.delivery_forecast)}
+                      {context.currentStage?.name ?? "Sem etapa"} · {plan ? "Conclusão planejada" : "Entrega prevista"}{" "}
+                      {formatDate(plan ? context.prod.planned_end_date : context.prod.delivery_forecast)}
                     </p>
+                    {plan && <div className="mt-2 flex flex-wrap gap-2 text-xs">
+                      <span className={`rounded-md px-2 py-1 font-semibold ${plan.window === "atrasada" ? "bg-red-50 text-red-700" : plan.window === "hoje" ? "bg-orange-50 text-orange-800" : "bg-muted text-muted-foreground"}`}>
+                        {({ atrasada: "Planejamento atrasado", hoje: "Planejado para hoje", proximos_7_dias: "Próximos 7 dias", futura: "Prazo futuro", sem_data: "Sem data planejada", producao_concluida: "Produção concluída · PROD aberta" })[plan.window]}
+                      </span>
+                      {canSeeMaterials && <span className="rounded-md bg-muted px-2 py-1 text-muted-foreground">
+                        {plan.materials === "sem_registro" ? "Materiais: sem registro" : plan.materials === "pendente" ? `Materiais pendentes: ${plan.materialIssues.join(", ")}` : "Materiais registrados confirmados"}
+                      </span>}
+                      {canSeeDocuments && <span className="rounded-md bg-muted px-2 py-1 text-muted-foreground">
+                        {plan.documents === "sem_registro" ? "Listas: sem conferência registrada" : plan.documents === "pendente" ? `Listas: ${plan.pendingDocuments} item(ns) pendente(s)` : "Itens registrados conferidos"}
+                      </span>}
+                    </div>}
                   </div>
                   <div className="flex shrink-0 flex-wrap items-start justify-end gap-2">
                     <LifecycleBadge item={context.prod} />
