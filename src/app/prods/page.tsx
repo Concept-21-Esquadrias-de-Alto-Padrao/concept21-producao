@@ -1,7 +1,7 @@
 import { LifecycleTabs } from "@/components/lifecycle-tabs";
 import { lifecycleView, parseLifecycleView, completionInPeriod, lifecycleRecordedAt } from "@/lib/lifecycle";
 import { MANUAL_PROD_STATUSES } from "@/lib/prod-progress";
-import { Factory, Plus } from "lucide-react";
+import { AlertTriangle, CalendarClock, CalendarDays, Factory, Plus } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ActionForm, Field, inputClass, textareaClass } from "@/components/action-form";
@@ -13,6 +13,8 @@ import { ProdsList } from "@/components/prods-list";
 import { createProdAction } from "@/app/actions";
 import { getProdsPageData } from "@/lib/data";
 import { buildProdContext } from "@/lib/production";
+import { compareOpenProdPlans, getOpenProdPlans, type PlanningWindow } from "@/lib/open-prod-planning";
+import { StatCard } from "@/components/stat-card";
 import { priorityLabels, prodStatusLabels } from "@/lib/labels";
 import {
   appNavigationPermissionKeys,
@@ -35,6 +37,9 @@ export default async function ProdsPage({
     search?: string;
     contract?: string;
     prod?: string;
+    planning?: string;
+    materials?: string;
+    documents?: string;
   }>;
 }) {
   const params = await searchParams;
@@ -42,13 +47,18 @@ export default async function ProdsPage({
     ...appNavigationPermissionKeys,
     "production.prods.create",
     "production.prods.edit",
+    "production.materials.view",
+    "production.documents.manage",
   ]);
 
   if (!canAccessModule(access, MODULE_ACCESS.prods)) {
     redirect(firstAllowedAppRoute(access) ?? "/login");
   }
 
-  const snapshot = await getProdsPageData();
+  const canSeeMaterials = access.isMaster || access.permissions["production.materials.view"];
+  const canSeeDocuments = access.isMaster || access.permissions["production.documents.manage"];
+  const snapshot = await getProdsPageData(canSeeMaterials, canSeeDocuments);
+  const plans = getOpenProdPlans(snapshot, new Date());
   const view = parseLifecycleView(params.view);
   if (view === "arquivados") redirect("/archives");
   const canCreateProds = access.isMaster || access.permissions["production.prods.create"];
@@ -64,6 +74,9 @@ export default async function ProdsPage({
   if (params.prod) listQuery.set("prod", params.prod);
   if (params.stage) listQuery.set("stage", params.stage);
   if (params.status) listQuery.set("status", params.status);
+  if (params.planning) listQuery.set("planning", params.planning);
+  if (params.materials) listQuery.set("materials", params.materials);
+  if (params.documents) listQuery.set("documents", params.documents);
 
   const currentListHref = listQuery.toString() ? `/prods?${listQuery.toString()}` : "/prods";
   const hasAppliedListFilter = Boolean(
@@ -71,13 +84,17 @@ export default async function ProdsPage({
       contractFilter ||
       prodFilter ||
       params.stage ||
-      params.status,
+      params.status ||
+      params.planning ||
+      params.materials ||
+      params.documents,
   );
   const contexts = snapshot.prods
     .map((prod) => buildProdContext(snapshot, prod))
     .filter((context): context is NonNullable<typeof context> => Boolean(context));
   const filteredContexts = contexts
     .filter(context => lifecycleView(context.prod) === view)
+    .filter(context => view !== "em_andamento" || Boolean(plans[context.prod.id]))
     .filter(context => completionInPeriod(lifecycleRecordedAt(context.prod), params.from, params.to))
     .filter((context) => !params.stage || context.prod.current_stage_id === params.stage)
     .filter((context) => !params.status || context.prod.status === params.status)
@@ -104,7 +121,18 @@ export default async function ProdsPage({
         String(context.prod.prod_number).toLocaleLowerCase("pt-BR").includes(
           prodFilter.toLocaleLowerCase("pt-BR"),
         ),
-    );
+    )
+    .filter(context => view !== "em_andamento" || (
+      (!params.planning || plans[context.prod.id]?.window === params.planning) &&
+      (!canSeeMaterials || !params.materials || plans[context.prod.id]?.materials === params.materials) &&
+      (!canSeeDocuments || !params.documents || plans[context.prod.id]?.documents === params.documents)
+    ))
+    .sort((a, b) => view === "em_andamento" && plans[a.prod.id] && plans[b.prod.id]
+      ? compareOpenProdPlans(plans[a.prod.id], plans[b.prod.id]) : 0);
+
+  const openPlans = Object.values(plans);
+  const planningCounts = (window: PlanningWindow) =>
+    openPlans.filter(plan => plan.window === window).length;
 
   return (
     <div className="space-y-6">
@@ -125,6 +153,31 @@ export default async function ProdsPage({
       />
 
       <LifecycleTabs path="/prods" view={view} showArchives={access.isMaster} />
+      {view === "em_andamento" && (
+        <Panel>
+          <PanelHeader title="Planejamento das PRODs abertas" description="Prazo de conclusão planejado pela Produção. As datas não representam compromisso informado pelo cliente." />
+          <PanelBody>
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+              <Link href="/prods?view=em_andamento&planning=atrasada" aria-label="Ver PRODs com planejamento atrasado">
+                <StatCard label="Atrasadas" value={planningCounts("atrasada")} icon={AlertTriangle} tone="danger" />
+              </Link>
+              <Link href="/prods?view=em_andamento&planning=hoje" aria-label="Ver PRODs planejadas para hoje">
+                <StatCard label="Para hoje" value={planningCounts("hoje")} icon={CalendarDays} tone="accent" />
+              </Link>
+              <Link href="/prods?view=em_andamento&planning=proximos_7_dias" aria-label="Ver PRODs planejadas para os próximos sete dias">
+                <StatCard label="Próximos 7 dias" value={planningCounts("proximos_7_dias")} icon={CalendarClock} />
+              </Link>
+              <Link href="/prods?view=em_andamento&planning=sem_data" aria-label="Ver PRODs sem data planejada">
+                <StatCard label="Sem data planejada" value={planningCounts("sem_data")} icon={Factory} />
+              </Link>
+              <Link href="/prods?view=em_andamento&planning=producao_concluida" aria-label="Ver PRODs abertas com fabricação concluída">
+                <StatCard label="Produção concluída" value={planningCounts("producao_concluida")} icon={Factory} tone="success" />
+              </Link>
+            </div>
+            <p className="mt-3 text-xs text-muted-foreground">A ausência de registros de materiais ou conferências é indicada separadamente. Este painel não altera o andamento das PRODs.</p>
+          </PanelBody>
+        </Panel>
+      )}
       <div className={canCreateProds && view === "em_andamento" ? "grid gap-4 xl:grid-cols-[0.85fr_1.15fr]" : "space-y-4"}>
         {canCreateProds && view === "em_andamento" ? (
           <Panel id="nova-prod">
@@ -208,7 +261,7 @@ export default async function ProdsPage({
         <Panel>
           <PanelHeader
             title="Lista de PRODs"
-            description="Filtre por cliente, contrato, PROD, etapa e status simultaneamente."
+            description="Filtre por cliente, contrato, PROD, etapa, status e pendências do planejamento."
           />
           <PanelBody>
             <div className="mb-4 grid gap-3">
@@ -281,6 +334,35 @@ export default async function ProdsPage({
                     Limpar
                   </Link>
                 </div>
+                {view === "em_andamento" && <div className="grid gap-3 sm:grid-cols-3">
+                  <Field label="Data de conclusão planejada">
+                    <select name="planning" className={inputClass} defaultValue={params.planning ?? ""}>
+                      <option value="">Todos os prazos</option>
+                      <option value="atrasada">Atrasadas</option>
+                      <option value="hoje">Hoje</option>
+                      <option value="proximos_7_dias">Próximos 7 dias</option>
+                      <option value="sem_data">Sem data</option>
+                      <option value="futura">Mais de 7 dias</option>
+                      <option value="producao_concluida">Produção concluída, PROD aberta</option>
+                    </select>
+                  </Field>
+                  {canSeeMaterials && <Field label="Materiais">
+                    <select name="materials" className={inputClass} defaultValue={params.materials ?? ""}>
+                      <option value="">Todos</option>
+                      <option value="pendente">Com confirmação pendente</option>
+                      <option value="sem_registro">Sem registro</option>
+                      <option value="confirmado">Grupos registrados confirmados</option>
+                    </select>
+                  </Field>}
+                  {canSeeDocuments && <Field label="Listas e documentos">
+                    <select name="documents" className={inputClass} defaultValue={params.documents ?? ""}>
+                      <option value="">Todos</option>
+                      <option value="pendente">Com itens pendentes</option>
+                      <option value="sem_registro">Sem conferência registrada</option>
+                      <option value="conferidos">Itens registrados conferidos</option>
+                    </select>
+                  </Field>}
+                </div>}
                 {hasAppliedListFilter ? (
                   <p className="text-xs text-muted-foreground">
                     {filteredContexts.length} PROD(s) encontrada(s).
@@ -298,6 +380,9 @@ export default async function ProdsPage({
             ) : (
               <ProdsList
                 contexts={filteredContexts}
+                plans={plans}
+                canSeeMaterials={canSeeMaterials}
+                canSeeDocuments={canSeeDocuments}
                 materials={snapshot.prodMaterials}
                 contracts={snapshot.contracts}
                 profiles={snapshot.profiles}

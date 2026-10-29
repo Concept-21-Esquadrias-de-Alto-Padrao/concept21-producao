@@ -1019,9 +1019,11 @@ export async function getWorkPortfolioPageData(canSeeMaterials: boolean) {
   ]));
 }
 
-export async function getProdsPageData() {
+export async function getProdsPageData(canSeeMaterials = false, canSeeDocuments = false) {
   return loadProductionSnapshot(
-    includeKeys(["clients", "contracts", "profiles", "stages", "prods", "prodMaterials", "prodPieces", "prodPieceStages"]),
+    includeKeys(["clients", "contracts", "profiles", "stages", "prods", "prodPieces", "prodPieceStages",
+      ...(canSeeMaterials ? ["prodMaterials" as const] : []),
+      ...(canSeeDocuments ? ["documentChecks" as const] : [])]),
   );
 }
 
