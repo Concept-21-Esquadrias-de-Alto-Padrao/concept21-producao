@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ContractScopePdfForm } from "@/components/contract-scope-pdf-form";
 import { ContractScopeConfirmation } from "@/components/contract-scope-confirmation";
+import { ContractScopeMappingForm } from "@/components/contract-scope-mapping-form";
 import { LifecycleHistory } from "@/components/lifecycle-panel";
 import { PageHeader } from "@/components/page-header";
 import { getWorkPortfolioPageData } from "@/lib/data";
@@ -52,15 +53,19 @@ export default async function WorkDetail({ params }: { params: Promise<{ id: str
       {revision ? <>
         <p className="mt-2 text-sm">Revisão registrada {revision.revision_number} · {revision.source_kind === "tecnico_integral" ? "Lista integral vigente do Técnico" : "Proposta para referência"} · {formatDateTime(revision.created_at)}</p>
         {revision.source_revision && <p className="mt-1 text-sm">Revisão do documento: {revision.source_revision}</p>}
-        <p className="mt-2 text-sm font-semibold">{scope.totalFound} de {scope.totalExpected} unidades nas PRODs · {scope.status === "completo" ? "escopo integral conciliado" : scope.match ? "peças coincidem; falta confirmar a origem vigente" : "peças ainda não conciliadas"}</p>
-        <div className="mt-3 overflow-x-auto"><table className="w-full min-w-[400px] text-left text-sm"><thead><tr className="border-b"><th className="p-2">Item do contrato</th><th className="p-2">Código na PROD</th><th className="p-2">Esperado</th><th className="p-2">Encontrado</th></tr></thead><tbody>
-          {scope.lines.map(line => <tr key={line.code} className="border-b"><td className="p-2">{line.code}</td><td className="p-2">{line.prodCode}</td><td className="p-2">{line.expected}</td><td className="p-2">{line.found}</td></tr>)}
+        <p className="mt-2 text-sm font-semibold">{scope.contractUnits} unidade(s) na lista do contrato · {scope.totalFound} de {scope.totalExpected} peça(s) vinculadas nas PRODs · {scope.status === "completo" ? "escopo integral conciliado" : scope.match ? "peças coincidem; falta confirmar a origem vigente" : "peças ainda não conciliadas"}</p>
+        <div className="mt-3 overflow-x-auto"><table className="w-full min-w-[400px] text-left text-sm"><thead><tr className="border-b"><th className="p-2">Item do contrato</th><th className="p-2">Unidades no contrato</th><th className="p-2">Peças da PROD vinculadas</th><th className="p-2">Quantidade esperada / encontrada</th></tr></thead><tbody>
+          {scope.lines.map(line => <tr key={line.code} className="border-b"><td className="p-2">{line.code}</td><td className="p-2">{line.contractQuantity}</td><td className="p-2">{line.parts.map(part => part.code).join(" + ")}</td><td className="p-2">{line.parts.map(part => `${part.code}: ${part.expected} / ${part.found}`).join("; ")}</td></tr>)}
         </tbody></table></div>
         {!!scope.extras.length && <p className="mt-2 text-sm text-amber-900">Itens nas PRODs fora da lista vigente: {scope.extras.map(item => `${item.code} (${item.quantity})`).join(", ")}.</p>}
+        {!!scope.withoutImport && <p className="mt-2 text-sm text-amber-900">{scope.withoutImport} peça(s) sem leitura de itens da PROD. Confira a origem antes de confirmar.</p>}
+        {!!scope.unreleased && <p className="mt-2 text-sm text-amber-900">{scope.unreleased} peça(s) ainda não liberada(s) para a Produção.</p>}
         {revision.source_kind === "proposta" && scope.match && (access.isMaster || access.permissions["production.contracts.edit"]) &&
           <ContractScopeConfirmation contractId={id} revisionId={revision.id}
             sourceRevision={revision.source_revision} count={scope.totalExpected} />}
-        {revision.source_kind === "proposta" && !scope.match && <p className="mt-3 rounded bg-amber-50 p-3 text-sm text-amber-900">Confira códigos, quantidades, peças importadas e liberação de cada PROD. Quando coincidirem, a confirmação do escopo vigente aparecerá aqui.</p>}
+        {!scope.match && scope.hasCodeMismatch && !!scope.actualItems.length && (access.isMaster || access.permissions["production.contracts.edit"]) &&
+          <ContractScopeMappingForm key={revision.id} contractId={id} revision={revision} actualItems={scope.actualItems} />}
+        {!scope.match && <p className="mt-3 rounded bg-amber-50 p-3 text-sm text-amber-900">Confira códigos, quantidades, peças importadas, etapas arquivadas e liberação de cada PROD. Quando os vínculos coincidirem, a confirmação do escopo vigente aparecerá aqui.</p>}
         {revisions.length > 1 && <p className="mt-2 text-xs text-muted-foreground">{revisions.length - 1} revisão(ões) anterior(es) preservada(s) no histórico.</p>}
       </> : <p className="mt-2 text-sm">Registre a lista integral vigente do contrato para comparar as peças de todas as PRODs. Até lá, a liberação permanece pendente.</p>}
       <p className="mt-2 text-sm text-muted-foreground">Os desenhos permanecem na pasta do cliente no servidor. Uma proposta pode ser registrada como referência, mas não confirma o escopo integral vigente. Cada PDF de itens contém somente a respectiva PROD.</p>
