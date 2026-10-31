@@ -6,13 +6,19 @@ import { ArrowLeft, LogIn, UserPlus } from "lucide-react";
 import Link from "next/link";
 import { type FormEvent, useState } from "react";
 import { hasSupabaseBrowserEnv } from "@/lib/supabase/client";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { getPublicAppOrigin } from "@/lib/supabase/config";
 import { signInWithEmail, signUpWithEmail } from "@/lib/auth-client";
 import { toUserFriendlyErrorMessage } from "@/lib/errors";
 import { inputClass } from "./action-form";
 
 type AuthMode = "login" | "signup";
 
-export function AuthForm({ mode, notice }: { mode: AuthMode; notice?: string }) {
+export function AuthForm({ mode, notice, centralLoginEnabled = false }: {
+  mode: AuthMode;
+  notice?: string;
+  centralLoginEnabled?: boolean;
+}) {
   const isSignup = mode === "signup";
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -80,6 +86,23 @@ export function AuthForm({ mode, notice }: { mode: AuthMode; notice?: string }) 
       setMessage(toUserFriendlyErrorMessage(error));
       setFieldMessage(toUserFriendlyErrorMessage(error));
     } finally {
+      setPending(false);
+    }
+  }
+
+  async function signInWithCorporateIdentity() {
+    setPending(true);
+    setMessage("");
+    setFieldMessage("");
+    try {
+      const redirectTo = new URL("/auth/callback?next=%2F", getPublicAppOrigin());
+      const { error } = await createSupabaseBrowserClient().auth.signInWithOAuth({
+        provider: "custom:concept21",
+        options: { redirectTo: redirectTo.toString(), scopes: "openid email profile" },
+      });
+      if (error) throw error;
+    } catch (error) {
+      setMessage(toUserFriendlyErrorMessage(error, "Não foi possível iniciar o acesso corporativo."));
       setPending(false);
     }
   }
@@ -199,6 +222,22 @@ export function AuthForm({ mode, notice }: { mode: AuthMode; notice?: string }) 
                 : "Entrar"}
           </button>
         </form>
+
+        {!isSignup && centralLoginEnabled ? (
+          <div className="mt-5 border-t border-zinc-200 pt-4">
+            <button
+              type="button"
+              onClick={signInWithCorporateIdentity}
+              disabled={pending}
+              className="min-h-11 w-full rounded-md border border-accent px-4 py-2 text-sm font-semibold text-charcoal hover:bg-orange-50 disabled:opacity-60"
+            >
+              Entrar com a identidade Concept21 (piloto)
+            </button>
+            <p className="mt-2 text-xs text-zinc-500">
+              Seu perfil e suas permissões continuam sendo validados pela Produção.
+            </p>
+          </div>
+        ) : null}
 
         {!isSignup ? (
           <div className="mt-5 border-t border-zinc-200 pt-4 text-center text-sm text-zinc-600">
