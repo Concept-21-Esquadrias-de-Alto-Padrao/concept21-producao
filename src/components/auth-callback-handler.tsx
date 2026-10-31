@@ -5,7 +5,7 @@ import type { EmailOtpType } from "@supabase/supabase-js";
 import { createSupabaseCallbackBrowserClient } from "@/lib/supabase/client";
 
 function getSafeNext(value: string | null) {
-  return value?.startsWith("/") ? value : "/login?confirmed=1";
+  return value === "/" ? value : "/login?confirmed=1";
 }
 
 function getHashParams() {
