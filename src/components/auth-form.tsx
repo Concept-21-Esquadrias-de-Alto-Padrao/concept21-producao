@@ -95,7 +95,7 @@ export function AuthForm({ mode, notice, centralLoginEnabled = false }: {
     setMessage("");
     setFieldMessage("");
     try {
-      const redirectTo = new URL("/auth/callback?next=%2F", getPublicAppOrigin());
+      const redirectTo = new URL("/auth/complete?next=%2F", getPublicAppOrigin());
       const { error } = await createSupabaseBrowserClient().auth.signInWithOAuth({
         provider: "custom:concept21",
         options: { redirectTo: redirectTo.toString(), scopes: "openid email profile" },
