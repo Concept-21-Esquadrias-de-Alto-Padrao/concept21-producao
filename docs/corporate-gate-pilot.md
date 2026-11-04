@@ -5,6 +5,9 @@ No deploy de homologação, configure `CORPORATE_GATE_ENABLED=true`,
 `PORTAL_CORPORATE_ACCESS_URL=https://concept21-portal-homologacao.vercel.app/api/internal/module-access`.
 Configure `PORTAL_GATE_SYNC_SECRET` com valor aleatório exclusivo de pelo menos
 32 caracteres, igual a `PRODUCTION_MODULE_GATE_SYNC_SECRET` no servidor do Portal.
+Configure `CORPORATE_GATE_PILOT_USER_ID=5eed5cfb-b572-4b50-a300-549340e61bff`
+e `CORPORATE_GATE_PILOT_LINK_ID=1dd1876e-7503-4da9-b1a4-66cf96205d70`.
+Somente esse par pode ser alterado pela rota interna.
 Não configure o sinalizador na produção.
 
 O Portal verifica o token emitido pelo projeto Supabase da Produção e consulta o
@@ -27,6 +30,11 @@ homologação. A identidade piloto revogada leu zero linhas de `permissions`, e
 com a condição ativa recuperou a leitura. O ensaio foi revertido. Depois, a
 migração foi aplicada na homologação como versão `20261104125229`: 61 políticas
 foram criadas e o cadastro de bloqueio permaneceu vazio.
+O guarda dos caminhos de escrita privilegiados foi aplicado como versão
+`20261104130745`: três gatilhos verificam a revogação antes de escrever em
+`production_prods`, `platform_notifications` e `access_review_requests`.
+Em transação revertida, um gatilho recusou a escrita da identidade revogada
+com erro 42501. Nenhuma linha piloto permaneceu gravada.
 
 **Pendente:** configurar os aplicativos e testar com sessão
 existente, URL direta, ações do servidor, Storage e consulta direta ao Supabase.

@@ -23,6 +23,10 @@ export async function POST(request: Request) {
   if (!input || typeof input.authUserId !== "string" || !uuid.test(input.authUserId) ||
       typeof input.portalLinkId !== "string" || !uuid.test(input.portalLinkId) ||
       typeof input.allowed !== "boolean") return NextResponse.json({ error: "Solicitação inválida." }, { status: 400 });
+  if (!process.env.CORPORATE_GATE_PILOT_USER_ID || !process.env.CORPORATE_GATE_PILOT_LINK_ID ||
+      input.authUserId !== process.env.CORPORATE_GATE_PILOT_USER_ID ||
+      input.portalLinkId !== process.env.CORPORATE_GATE_PILOT_LINK_ID)
+    return NextResponse.json({ error: "Fora do piloto." }, { status: 403 });
   const { error } = await getSupabaseAdminClient().from("corporate_gate_subjects").upsert({
     auth_user_id: input.authUserId,
     portal_link_id: input.portalLinkId,

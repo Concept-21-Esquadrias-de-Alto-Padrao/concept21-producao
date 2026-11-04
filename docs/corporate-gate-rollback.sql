@@ -1,5 +1,9 @@
 -- Use only for reverting the homologation pilot after verifying gate status.
 begin;
+drop trigger if exists corporate_gate_prod_write on public.production_prods;
+drop trigger if exists corporate_gate_notification_write on public.platform_notifications;
+drop trigger if exists corporate_gate_review_write on public.access_review_requests;
+drop function if exists corporate_gate_private.reject_revoked_write();
 do $$
 declare target record;
 begin
