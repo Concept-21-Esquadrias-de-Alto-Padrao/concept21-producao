@@ -13,6 +13,13 @@ describe("leitura do desenho SmartCEM", () => {
       items: [{ code: "P06", quantity: 1 }, { code: "P07", quantity: 1 }, { code: "J01", quantity: 1 }, { code: "J02", quantity: 1 }],
     });
   });
+  it("lê número de proposta separado em itens de texto no PDF", () => {
+    const splitNumber = separatedFields.replace("Proposta Nº\\n26-0731", "Proposta\\t \\tNº\\n26\\t-\\t0731");
+    expect(parseContractScopePdfText(splitNumber, 6).contractNumber).toBe("26-0731");
+    expect(parseContractScopePdfText(splitNumber, 6).items).toEqual([
+      { code: "P01", quantity: 1 }, { code: "MUX02_A1", quantity: 2 },
+    ]);
+  });
   it("lê campos separados com Qtd antes ou depois de Tipo", () => {
     expect(parseContractScopePdfText(separatedFields, 6)).toEqual({
       contractNumber: "26-0731", documentKind: "proposta", pages: 6,

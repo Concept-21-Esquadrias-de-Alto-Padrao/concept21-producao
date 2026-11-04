@@ -32,7 +32,9 @@ export function parseContractScopePdfText(rawText: string, pages: number): Contr
   if (/Itens da Obra/i.test(text) && !/Proposta Nº/i.test(text)) {
     throw new Error("Este PDF contém apenas itens de uma PROD. Importe-o na tela da PROD; aqui use o desenho ou a lista integral do contrato.");
   }
-  const contractNumber = text.match(/Proposta\s*N[º°o.]\s*\n\s*(\d{2}-\d{4})/i)?.[1];
+  // Some SmartCEM exports split the number into PDF text runs: "26\t-\t0796".
+  const proposalNumber = text.match(/Proposta\s*N[º°o.]\s*(\d{2})\s*-\s*(\d{4})/i);
+  const contractNumber = proposalNumber ? `${proposalNumber[1]}-${proposalNumber[2]}` : undefined;
   if (!contractNumber) throw new Error("Não foi possível identificar o número da proposta no PDF. Confira o arquivo.");
 
   const lines = text.split("\n").map(line => line.trim()).filter(Boolean);
