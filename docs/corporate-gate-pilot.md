@@ -12,8 +12,18 @@ que usam `requireAuthenticatedProfile`, as ações que usam `getActionContext`,
 o endpoint de acesso atual e as rotas de solicitação de acesso também consultam
 o Portal. Falha de comunicação bloqueia essas operações.
 
-**Limite atual:** a aplicação também usa consultas diretas do navegador ao
-Supabase. Um JWT ainda válido pode acessar essas operações até que uma regra
-restritiva de RLS no banco da Produção reflita a revogação. Este piloto não
-cumpre o requisito de revogação completa antes dessa etapa e do teste com
-sessão existente, URL direta e consulta direta ao Supabase.
+A migração `corporate_gate_homologation` acrescenta uma política restritiva às
+tabelas `public` com RLS e a `storage.objects`. O Portal atualiza primeiro a
+condição local para revogar e só depois marca o vínculo como revogado. Uma
+restauração inverte essa ordem. Usuários sem linha no cadastro local conservam
+as permissões atuais durante o piloto. Um rollback de DDL está em
+`docs/corporate-gate-rollback.sql`.
+
+Em 04/11/2026, a migração foi ensaiada em transação revertida no Supabase de
+homologação. A identidade piloto revogada leu zero linhas de `permissions`, e
+com a condição ativa recuperou a leitura. `corporate_gate_subjects` não ficou
+criada ao final do ensaio.
+
+**Pendente:** aplicar a migração, configurar o Portal e testar com sessão
+existente, URL direta, ações do servidor, Storage e consulta direta ao Supabase.
+Até concluir esses testes, não afirmar revogação completa.
