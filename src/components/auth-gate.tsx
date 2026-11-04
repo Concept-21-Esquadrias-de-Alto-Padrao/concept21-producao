@@ -27,6 +27,7 @@ type AuthGateState =
   | { status: "pending-access"; access: CurrentUserAccess; requestId: string | null }
   | { status: "unverified-email"; email?: string | null }
   | { status: "inactive-profile"; email?: string | null }
+  | { status: "revoked" }
   | { status: "missing-profile"; email?: string | null }
   | { status: "maintenance"; maintenance: SystemMaintenance; email?: string | null }
   | { status: "error"; message: string };
@@ -202,6 +203,21 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
           return;
         }
 
+        if (process.env.NEXT_PUBLIC_CORPORATE_GATE_ENABLED === "true") {
+          const gate = await fetch("/api/auth/corporate-access", {
+            method: "POST",
+            headers: { Authorization: `Bearer ${session.data.session.access_token}` },
+            cache: "no-store",
+          });
+          if (gate.status === 403 || gate.status === 401) {
+            stopPolling();
+            await signOut();
+            if (active) setState({ status: "revoked" });
+            return;
+          }
+          if (!gate.ok) throw new Error("Não foi possível validar o vínculo corporativo.");
+        }
+
         const access = await getCurrentUserAccess();
 
         if (!active) return;
@@ -321,6 +337,13 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
         <FloatingMessage message={state.message} />Atualize a página para tentar novamente.
       </AccessMessage>
     );
+  }
+
+  if (state.status === "revoked") {
+    return <AccessMessage tone="red" title="Acesso corporativo encerrado.">
+      <p>O vínculo deste módulo foi revogado. Solicite revisão do acesso internamente.</p>
+      <Link href="/login">Voltar ao login</Link>
+    </AccessMessage>;
   }
 
   if (state.status === "maintenance") {

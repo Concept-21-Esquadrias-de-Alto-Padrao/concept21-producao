@@ -3,6 +3,7 @@ import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient, hasSupabaseEnv } from "@/lib/supabase/server";
 import { getSystemMaintenanceState } from "@/lib/system-maintenance-server";
 import type { Profile, Role, UserRole } from "@/lib/types";
+import { checkCorporateAccess } from "@/lib/corporate-access-server";
 
 export class HttpError extends Error {
   status: number;
@@ -115,6 +116,15 @@ export async function requireAuthenticatedProfile(): Promise<AuthenticatedProfil
 
   if (!user) {
     throw new HttpError(401, "Sessão não encontrada.");
+  }
+
+  if (process.env.CORPORATE_GATE_ENABLED === "true") {
+    const { data: { session } } = await authClient.auth.getSession();
+    const corporateAccess = await checkCorporateAccess(session?.access_token ?? "");
+    if (corporateAccess !== "allowed") {
+      throw new HttpError(corporateAccess === "revoked" ? 403 : 503,
+        corporateAccess === "revoked" ? "Vínculo corporativo revogado." : "Não foi possível validar o vínculo corporativo.");
+    }
   }
 
   const admin = getSupabaseAdminClient();

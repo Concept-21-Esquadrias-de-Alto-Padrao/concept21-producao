@@ -3,6 +3,7 @@ import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { appNavigationPermissionKeys } from "@/lib/module-access";
 import { getSystemMaintenanceState } from "@/lib/system-maintenance-server";
+import { checkCorporateAccess } from "@/lib/corporate-access-server";
 import type {
   AccessReviewRequest,
   Profile,
@@ -64,6 +65,17 @@ export async function GET() {
 
   if (!user) {
     return NextResponse.json({ error: "Sessão não encontrada." }, { status: 401 });
+  }
+
+  if (process.env.CORPORATE_GATE_ENABLED === "true") {
+    const { data: { session } } = await authClient.auth.getSession();
+    const corporateAccess = await checkCorporateAccess(session?.access_token ?? "");
+    if (corporateAccess !== "allowed") {
+      return NextResponse.json(
+        { error: corporateAccess === "revoked" ? "Vínculo corporativo revogado." : "Não foi possível validar o vínculo corporativo." },
+        { status: corporateAccess === "revoked" ? 403 : 503, headers: { "Cache-Control": "no-store" } },
+      );
+    }
   }
 
   const admin = getSupabaseAdminClient();
