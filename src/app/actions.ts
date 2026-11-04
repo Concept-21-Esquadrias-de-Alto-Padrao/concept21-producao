@@ -30,6 +30,7 @@ import { hasActiveMasterRole } from "@/lib/server-access";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient, hasSupabaseEnv } from "@/lib/supabase/server";
 import { getSystemMaintenanceState } from "@/lib/system-maintenance-server";
+import { checkCorporateAccess } from "@/lib/corporate-access-server";
 
 type ActionState = {
   ok: boolean;
@@ -79,6 +80,22 @@ async function getActionContext(): Promise<ActionContext> {
         message: "Faça login novamente para cadastrar dados de produção.",
       },
     };
+  }
+
+  if (process.env.CORPORATE_GATE_ENABLED === "true") {
+    const { data: { session } } = await supabase.auth.getSession();
+    const corporateAccess = await checkCorporateAccess(session?.access_token ?? "");
+    if (corporateAccess !== "allowed") {
+      return {
+        ok: false,
+        state: {
+          ok: false,
+          message: corporateAccess === "revoked"
+            ? "Vínculo corporativo revogado."
+            : "Não foi possível validar o vínculo corporativo.",
+        },
+      };
+    }
   }
 
   const { data: profile, error: profileError } = await supabase
