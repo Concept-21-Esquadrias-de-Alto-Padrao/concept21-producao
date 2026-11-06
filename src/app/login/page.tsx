@@ -13,5 +13,9 @@ export default async function LoginPage({
         ? "Não foi possível concluir a confirmação. Solicite um novo link ou tente novamente."
         : undefined;
 
-  return <AuthForm mode="login" notice={notice} />;
+  return <AuthForm
+    mode="login"
+    notice={notice}
+    centralLoginEnabled={process.env.CENTRAL_LOGIN_PILOT_ENABLED === "true"}
+  />;
 }

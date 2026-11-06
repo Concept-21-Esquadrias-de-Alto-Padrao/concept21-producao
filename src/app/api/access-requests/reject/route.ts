@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { checkCorporateAccess } from "@/lib/corporate-access-server";
 
 type RejectRequestBody = {
   profileId?: string;
@@ -45,6 +46,13 @@ export async function POST(request: Request) {
 
   if (!user) {
     return NextResponse.json({ error: "Sessão não autorizada." }, { status: 401 });
+  }
+
+  if (process.env.CORPORATE_GATE_ENABLED === "true") {
+    const { data: { session } } = await authClient.auth.getSession();
+    const access = await checkCorporateAccess(session?.access_token ?? "");
+    if (access !== "allowed") return NextResponse.json({ error: "Vínculo corporativo indisponível." },
+      { status: access === "revoked" ? 403 : 503 });
   }
 
   const admin = getSupabaseAdminClient();
