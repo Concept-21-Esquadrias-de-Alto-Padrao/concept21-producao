@@ -43,6 +43,14 @@ describe("leitura do desenho SmartCEM", () => {
       normalizedCodes: [{ original: "RIP 2_A", code: "RIP2_A" }],
     });
   });
+  it("normaliza código acentuado do desenho e informa a conversão na prévia", () => {
+    const text = "Proposta Nº\n26-0764\nTipo:\tLinha:\tL:\tH:\tQtd:\nALÇ\t800\t800\tGOLD\t1";
+    expect(parseContractScopePdfText(text, 1)).toEqual({
+      contractNumber: "26-0764", documentKind: "proposta", pages: 1,
+      items: [{ code: "ALC", quantity: 1 }],
+      normalizedCodes: [{ original: "ALÇ", code: "ALC" }],
+    });
+  });
   it("rejeita PDF apenas da PROD e leitura parcial do desenho", () => {
     expect(() => parseContractScopePdfText("Itens da Obra\nObra: 26-0810_PROD1", 1)).toThrow(/apenas itens de uma PROD/);
     expect(() => parseContractScopePdfText(proposal.replace("J0228601200GOLD1", "linha ilegível"), 2)).toThrow(/Não foi possível ler uma linha/);

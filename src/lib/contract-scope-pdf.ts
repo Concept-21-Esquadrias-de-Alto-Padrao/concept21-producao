@@ -75,8 +75,9 @@ export function parseContractScopePdfText(rawText: string, pages: number): Contr
       continue;
     }
 
-    // The scope registry uses compact codes; e.g. the PDF's "RIP 01" is "RIP01".
-    const normalizedCode = code?.replace(/\s+/g, "");
+    // The scope registry uses ASCII compact codes. Keep the original PDF code
+    // in normalizedCodes so conversions such as "ALÇ" -> "ALC" are visible.
+    const normalizedCode = code?.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "");
     if (!normalizedCode || !/^[A-Z0-9_./-]{1,60}$/.test(normalizedCode) ||
         !rawQuantity || !/^[1-9]\d{0,4}$/.test(rawQuantity) || Number(rawQuantity) > 10000) {
       throw new Error(`Não foi possível ler uma linha do desenho perto de “${line.slice(0, 50)}”. Confira o PDF antes de registrar.`);
