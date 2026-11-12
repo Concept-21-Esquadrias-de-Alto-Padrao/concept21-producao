@@ -1,3 +1,4 @@
+import { PlatformMaintenanceWatchdog } from "@/components/platform-maintenance-watchdog";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { AppShell } from "@/components/app-shell";
@@ -31,7 +32,7 @@ export default function RootLayout({
     >
       <body className="min-h-full antialiased">
         <FeedbackProvider><AppShell>{children}</AppShell></FeedbackProvider>
-      </body>
+      <PlatformMaintenanceWatchdog /></body>
     </html>
   );
 }
