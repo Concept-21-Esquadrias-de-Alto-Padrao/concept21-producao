@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { NextRequest } from "next/server";
 import { demoSnapshot } from "./demo-data";
 import { getPointingStages } from "./pointing";
 import { getAttentionItems } from "./production";
@@ -16,10 +17,12 @@ vi.mock("next/cache", () => ({ revalidatePath: vi.fn(), unstable_noStore: vi.fn(
 describe("transport isolation", () => {
   it("rejects legacy URLs before streaming the page", async () => {
     const { proxy } = await import("../proxy");
-    const response = proxy();
-    expect(response.status).toBe(410);
-    expect(response.headers.get("Cache-Control")).toBe("no-store");
-    expect(await response.text()).toContain(TRANSPORT_DISABLED_MESSAGE);
+    for (const path of ["/transport", "/freights", "/routes", "/extra-services"]) {
+      const response = await proxy(new NextRequest("https://concept21-producao.vercel.app" + path));
+      expect(response.status).toBe(410);
+      expect(response.headers.get("Cache-Control")).toBe("no-store");
+      expect(await response.text()).toContain(TRANSPORT_DISABLED_MESSAGE);
+    }
   });
 
   it("blocks transport for master and transport-only profiles without creating a redirect loop", () => {
@@ -71,3 +74,4 @@ describe("transport isolation", () => {
     expect(databaseAccess.session).not.toHaveBeenCalled();
   });
 });
+
