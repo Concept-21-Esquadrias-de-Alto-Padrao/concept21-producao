@@ -1,3 +1,4 @@
+import { portalSessionAllowed } from "@/lib/platform-auth";
 import { NextResponse } from "next/server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -66,6 +67,8 @@ export async function GET() {
     return NextResponse.json({ error: "Sessão não encontrada." }, { status: 401 });
   }
 
+  const {data:{session}}=await authClient.auth.getSession();
+  if(!session||!await portalSessionAllowed(user,session.access_token))return NextResponse.json({error:"Acesso pelo Portal indisponível."},{status:403});
   const admin = getSupabaseAdminClient();
   const { data: profileData, error: profileError } = await admin
     .from("profiles")

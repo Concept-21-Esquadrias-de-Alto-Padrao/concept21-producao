@@ -1,3 +1,4 @@
+import { portalSessionAllowed } from "@/lib/platform-auth";
 import { unstable_noStore as noStore } from "next/cache";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient, hasSupabaseEnv } from "@/lib/supabase/server";
@@ -116,6 +117,9 @@ export async function requireAuthenticatedProfile(): Promise<AuthenticatedProfil
   if (!user) {
     throw new HttpError(401, "Sessão não encontrada.");
   }
+
+  const {data:{session}}=await authClient.auth.getSession();
+  if(!session||!await portalSessionAllowed(user,session.access_token))throw new HttpError(403,"Acesso pelo Portal indisponível.");
 
   const admin = getSupabaseAdminClient();
   const { data: profileData, error: profileError } = await admin

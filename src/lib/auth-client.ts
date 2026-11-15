@@ -138,8 +138,9 @@ export async function signOut() {
   if (!hasSupabaseBrowserEnv()) return;
   clearCurrentUserAccessCache();
   const supabase = createSupabaseBrowserClient();
-  const { error } = await supabase.auth.signOut();
+  const { error } = await supabase.auth.signOut({scope:"local"});
   if (error) throw new Error(error.message);
+  if(typeof window!=="undefined")window.location.replace((process.env.NEXT_PUBLIC_PORTAL_ORIGIN??"https://concept21-portal.vercel.app")+"/auth/logout");
 }
 
 export async function getCurrentUserAccess(): Promise<CurrentUserAccess | null> {

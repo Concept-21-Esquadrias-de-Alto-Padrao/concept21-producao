@@ -1,5 +1,2 @@
-import { AuthForm } from "@/components/auth-form";
-
-export default function CadastroPage() {
-  return <AuthForm mode="signup" />;
-}
+import { redirect } from "next/navigation";
+export default function Page(){redirect("https://concept21-portal.vercel.app/");}

@@ -64,7 +64,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   );
 
   useEffect(() => {
-    if (publicRoutes.has(pathname)) return;
+    if ((publicRoutes.has(pathname)||pathname.startsWith("/auth/"))) return;
 
     let active = true;
 
@@ -85,7 +85,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     };
   }, [pathname]);
 
-  if (publicRoutes.has(pathname)) {
+  if ((publicRoutes.has(pathname)||pathname.startsWith("/auth/"))) {
     return <>{children}</>;
   }
 
